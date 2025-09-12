@@ -4,8 +4,7 @@ from ttkbootstrap.constants import *
 from PIL import Image, ImageTk
 from core.layout import create_base_layout, create_left_right_controls, create_status_controls, update_generation_state, setup_output_display, resize_center_bg, bind_dynamic_bg_resize
 from core.template_loader import load_template_data
-from core.styles import configure_styles
-from core.utils import update_msf_entry
+from core.ui_helpers import configure_styles, update_msf_entry
 
 
 # Main Application Class
@@ -31,6 +30,9 @@ class GonkWareApp:
 
         root.geometry(f"{window_width}x{window_height}+{x_offset}+{y_offset}")
 
+        # Set root background to black
+        root.configure(background="#000000")
+
         # ttkbootstrap theme setup
         self.style = tb.Style("flatly")
         configure_styles(self.style)
@@ -46,7 +48,7 @@ class GonkWareApp:
         self.left_frame = layout_refs["left_frame"]
         self.right_frame = layout_refs["right_frame"]
         self.center_frame = layout_refs["center_frame"]
-
+        
         self.left_bg_label = layout_refs["left_bg_label"]
         self.right_bg_label = layout_refs["right_bg_label"]
 
@@ -64,11 +66,12 @@ class GonkWareApp:
         self.output_text = output_refs["output_text"]
         self.output_bg_original = output_refs["output_bg_original"]
         self.output_bg_image = output_refs["output_bg_image"]
+        self.scrollbar = output_refs["scrollbar"]  # Store scrollbar reference
 
         create_left_right_controls(self)
 
         create_status_controls(self)
-        bind_dynamic_bg_resize(self) # resizing background images when window is resized
+        bind_dynamic_bg_resize(self) 
 
     # Render the generated script or error message in the output text widget
     def render_script(self, script):
@@ -132,7 +135,7 @@ class GonkWareApp:
             return
 
         base_image = Image.open(img_path) if img_path else Image.open(random.choice(png_files))
-        base_image = base_image.resize((64, 64))
+        base_image = base_image.resize((160, 160))
 
 #step=0  #### safe to remove
 

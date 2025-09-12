@@ -2,22 +2,24 @@ import ttkbootstrap as tb
 from PIL import Image, ImageTk
 from tkinter import END
 import psutil, json, os, re
-from core.shellcode_manager import generate_shellcode_threaded
-#from core.code_injection import toggle_obfuscation
-from core.builder import build_exe_from_output, build_final_script
-from core.utils import copy_msf_command, update_msf_entry
+from core.builder import generate_shellcode_threaded, build_exe_from_output
+from core.ui_helpers import copy_msf_command, update_msf_entry
 
 # creating UI components
-def create_base_layout(root):
+def create_base_layout(root, center_width=450):
     # === FRAME SETUP ===
-    left_frame = tb.Frame(root, bootstyle="dark", width=275)
+    # Create left frame first
+    left_frame = tb.Frame(root, bootstyle="dark")
     left_frame.pack(side=tb.LEFT, fill=tb.BOTH, expand=True)
-
-    right_frame = tb.Frame(root, bootstyle="dark", width=275)
+    
+    # Create right frame next 
+    right_frame = tb.Frame(root, bootstyle="dark")
     right_frame.pack(side=tb.RIGHT, fill=tb.BOTH, expand=True)
-
-    center_frame = tb.Frame(root, bootstyle="dark", width=250)
-    center_frame.pack(side=tb.RIGHT, fill=tb.BOTH, expand=True)
+    
+    # Create center frame last so it goes in the middle
+    center_frame = tb.Frame(root, bootstyle="dark", width=center_width)
+    center_frame.pack(side=tb.LEFT, fill=tb.BOTH, expand=False)
+    center_frame.pack_propagate(False)  # Prevent frame from shrinking to fit contents
 
     root.configure(background="#1f2523")
 
@@ -50,9 +52,12 @@ def create_base_layout(root):
 # Creating UI elements
 def create_left_right_controls(app):
     # --- LEFT SIDE ---
-    app.technique_options = ["Shellcode Runner", "Process Injection"]
+    app.technique_options = ["Shellcode Runner", "Process Injection", "csproj msbuild", "VBAMacro", "HTARunner"]
     app.selected_technique = tb.StringVar()
     app.selected_technique.set(app.technique_options[0])
+    
+    # Add callback to update build button and clear center frame when technique changes
+    app.selected_technique.trace('w', lambda *args: on_technique_change(app))
 
     technique_label = tb.Label(app.left_frame, text="TECHNIQUE:", style="SectionLabel.TLabel")
     technique_label.pack(pady=5, padx=10, anchor="nw")
@@ -63,16 +68,8 @@ def create_left_right_controls(app):
         state="readonly",
         style="RedCombo.TCombobox",
     )
-    technique_dropdown.configure(font=("Consolas", 12, "bold"), width=16)
+    technique_dropdown.configure(font=("Consolas", 12, "bold"), width=18)
     technique_dropdown.pack(pady=5, padx=10, anchor="nw")
-
-    app.format_options = ["csharp"]
-    app.selected_format = tb.StringVar(value="csharp")
-    format_label = tb.Label(app.left_frame, text="FORMAT:", style="SectionLabel.TLabel")
-    format_label.pack(pady=5, padx=10, anchor="nw")
-    format_dropdown = tb.Combobox(app.left_frame, textvariable=app.selected_format, values=app.format_options, state="readonly", style="RedCombo.TCombobox")
-    format_dropdown.configure(font=("Consolas", 12, "bold"), width=16)
-    format_dropdown.pack(pady=5, padx=10, anchor="nw")
 
     app.architecture = tb.StringVar(value="x64")
     arch_label = tb.Label(app.left_frame, text="ARCHITECTURE:", style="SectionLabel.TLabel")
@@ -181,24 +178,43 @@ def create_output_section(center_frame):
 
     output_text = tb.Text(
         text_frame,
-        yscrollcommand=scrollbar.set,
+        yscrollcommand=None,  # Initially disable scrollbar
         background="#000000",
         foreground="#fefe00",
         wrap=tb.WORD,
         insertbackground="#fefe00",
         selectbackground="#333333",
-        font=("Consolas", 10, "bold")
+        font=("Consolas", 10, "bold"),
+        state="disabled"  # Start in disabled state to prevent scrolling
     )
 
     output_text.pack(fill=tb.BOTH, expand=True)
-    scrollbar.config(command=output_text.yview)
 
-    # Center background image
+    # Disable all scroll events initially
+    def disable_scroll(event):
+        return "break"
+    
+    output_text.bind("<MouseWheel>", disable_scroll)
+    output_text.bind("<Button-4>", disable_scroll)
+    output_text.bind("<Button-5>", disable_scroll)
+    output_text.bind("<Up>", disable_scroll)
+    output_text.bind("<Down>", disable_scroll)
+    output_text.bind("<Prior>", disable_scroll)  # Page Up
+    output_text.bind("<Next>", disable_scroll)   # Page Down
+    output_text.bind("<Home>", disable_scroll)
+    output_text.bind("<End>", disable_scroll)
+
+    # Center background image - scale based on frame width
     output_bg_original = Image.open("frameImages/center_bg.png")
-    output_bg_image = ImageTk.PhotoImage(output_bg_original.resize((150, 150)))
+    # Use a smaller default size that scales with the frame (use minimum viable size)
+    image_size = max(40, min(80, 40))  # Minimum 20px, maximum 80px, default 40px
+    output_bg_image = ImageTk.PhotoImage(output_bg_original.resize((image_size, image_size)))
+    
+    # Temporarily enable to add image
+    output_text.configure(state="normal")
     output_text.image_create("1.0", image=output_bg_image)
     output_text.tag_lower("sel")
-
+    
     # Configure the "bold" tag to match the widget's colors
     output_text.tag_configure(
         "bold",
@@ -213,7 +229,8 @@ def create_output_section(center_frame):
     return {
         "output_text": output_text,
         "output_bg_original": output_bg_original,
-        "output_bg_image": output_bg_image
+        "output_bg_image": output_bg_image,
+        "scrollbar": scrollbar
     }
 
 # Setting up the output display with resize handler
@@ -274,7 +291,8 @@ def create_status_controls(app):
     app.top_status_label = tb.Label(
         app.right_frame,
         text="Status:",
-        style="StatusLabel.TLabel"
+        style="StatusLabel.TLabel",
+        width=12  # Fixed width to prevent frame resizing
     )
     app.top_status_label.configure(font=("Consolas", 15, "bold"))
     app.top_status_label.pack(pady=5, padx=10, anchor="se")
@@ -283,7 +301,8 @@ def create_status_controls(app):
     app.bottom_status_label = tb.Label(
         app.right_frame,
         text="Idle",
-        style="BottomStatusLabel.TLabel"
+        style="BottomStatusLabel.TLabel",
+        width=12  # Fixed width to prevent frame resizing
     )
     app.bottom_status_label.pack(pady=(0, 10), padx=10, anchor="se")
 
@@ -296,6 +315,111 @@ def create_status_controls(app):
     )
     app.loading_image_label.pack(pady=(10, 20), anchor="s")
     app.loading_image_label.place_forget()
+    
+    # Initialize the build button state based on default technique selection
+    update_build_button(app)
+
+# Copy output to clipboard for CSProj files
+def copy_csproj_to_clipboard(app):
+    try:
+        import pyperclip
+    except ImportError:
+        app.top_status_label.config(text="pyperclip not installed", foreground="#ff5555")
+        app.flicker_widget(app.top_status_label, "#ff0000", "#1f1f1f", steps=4, interval=60, final_color="#ec1c3a")
+        print("Error: pyperclip module not installed. Install with: pip install pyperclip")
+        return
+    
+    full_output = app.output_text.get("1.0", "end").strip()
+    if not full_output:
+        app.top_status_label.config(text="Nothing to copy", foreground="#ff5555")
+        app.flicker_widget(app.top_status_label, "#ff0000", "#1f1f1f", steps=4, interval=60, final_color="#ec1c3a")
+        return
+    
+    try:
+        pyperclip.copy(full_output)
+        app.top_status_label.config(text="Copied!", foreground="#00ff00")
+        app.bottom_status_label.config(text="to clipboard", foreground="#00ff00")
+        app.flicker_widget(app.top_status_label, "#00ff00", "#2e2e2e", final_color="#00ff00")
+    except Exception as e:
+        app.top_status_label.config(text="Copy failed", foreground="#ff5555")
+        app.flicker_widget(app.top_status_label, "#ff0000", "#1f1f1f", steps=4, interval=60, final_color="#ec1c3a")
+        print(f"Copy to clipboard failed: {e}")
+
+# Copy VBA Macro to clipboard
+def copy_vba_macro_to_clipboard(app):
+    """Copy the generated VBA macro to clipboard"""
+    
+    # Get the full output text (VBA macro code)
+    full_output = app.output_text.get("1.0", "end").strip()
+    
+    if not full_output:
+        app.output_text.configure(state="normal")
+        app.output_text.insert("end", "\n[!] No VBA macro code to copy.\n")
+        app.output_text.configure(state="disabled")
+        return
+    
+    try:
+        # Use tkinter's clipboard functionality
+        app.root.clipboard_clear()
+        app.root.clipboard_append(full_output)
+        app.root.update()  # Ensure clipboard is updated
+        
+        # Update status to show copy success
+        app.top_status_label.config(text="VBA Macro Copied!", foreground="#00ff00")
+        app.bottom_status_label.config(text="to clipboard", foreground="#00ff00")
+        app.flicker_widget(app.top_status_label, "#00ff00", "#2e2e2e", final_color="#00ff00")
+        
+        print("[+] VBA Macro copied to clipboard successfully")
+        
+    except Exception as e:
+        app.top_status_label.config(text="Copy failed", foreground="#ff5555")
+        app.flicker_widget(app.top_status_label, "#ff0000", "#1f1f1f", steps=4, interval=60, final_color="#ec1c3a")
+        print(f"[!] Error copying to clipboard: {e}")
+
+# Update the build button based on selected technique
+def update_build_button(app):
+    technique = app.selected_technique.get()
+    
+    if technique == "csproj msbuild":
+        app.build_button.config(
+            text="Copy CSProj",
+            command=lambda: copy_csproj_to_clipboard(app),
+            state=tb.DISABLED  # Disabled until generation
+        )
+        # Disable AppLocker checkbox for CSProj (not applicable)
+        if hasattr(app, 'applocker_checkbox'):
+            app.applocker_checkbox.configure(state=tb.DISABLED)
+            app.applocker_var.set(False)  # Uncheck it
+    elif technique == "VBAMacro":
+        app.build_button.config(
+            text="Copy Macro",
+            command=lambda: copy_vba_macro_to_clipboard(app),
+            state=tb.DISABLED  # Disabled until generation
+        )
+        # Disable AppLocker checkbox for VBA Macro (not applicable)
+        if hasattr(app, 'applocker_checkbox'):
+            app.applocker_checkbox.configure(state=tb.DISABLED)
+            app.applocker_var.set(False)  # Uncheck it
+    elif technique == "HTARunner":
+        app.build_button.config(
+            text="Copy HTA",
+            command=lambda: copy_vba_macro_to_clipboard(app),  # Reuse same copy function
+            state=tb.DISABLED  # Disabled until generation
+        )
+        # Disable AppLocker checkbox for HTA Runner (not applicable)
+        if hasattr(app, 'applocker_checkbox'):
+            app.applocker_checkbox.configure(state=tb.DISABLED)
+            app.applocker_var.set(False)  # Uncheck it
+    else:
+        app.build_button.config(
+            text="Build EXE",
+            command=lambda: build_exe_from_output(app),
+            state=tb.DISABLED  # Disabled until generation
+        )
+        # Disable AppLocker checkbox until generation for shellcode techniques
+        if hasattr(app, 'applocker_checkbox'):
+            app.applocker_checkbox.configure(state=tb.DISABLED)
+            app.applocker_var.set(False)  # Uncheck it
 
 # Create a flickering neon checkbox - NOT USED CURRENTLY
 def create_neon_checkbox(root, parent, text, variable, **kwargs):
@@ -307,7 +431,7 @@ def create_neon_checkbox(root, parent, text, variable, **kwargs):
     if not style.lookup(style_name, "font"):
         style.configure(
             style_name,
-            font=("Consolas", 15, "bold"),
+            font=("Consolas", 12, "bold"),  # Changed from 15 to 12
             foreground="#ec1c3a",
             background="#000000",
             indicatorbackground="#000000",
@@ -392,11 +516,55 @@ def update_generation_state(app, enabled=True, top_text=None, bottom_text=None, 
     app.root.after(0, lambda: app.copy_button.config(state=state))
     app.root.after(0, lambda: app.generate_button.config(state=state))
 
+    # Enable/disable scrollbar based on generation state
+    if hasattr(app, 'scrollbar') and hasattr(app, 'output_text'):
+        if enabled:
+            # Enable scrollbar after generation only if content is generated
+            app.root.after(0, lambda: app.output_text.configure(yscrollcommand=app.scrollbar.set))
+            app.root.after(0, lambda: app.scrollbar.config(command=app.output_text.yview))
+            
+            # Re-enable scroll events
+            def enable_scroll_events():
+                app.output_text.unbind("<MouseWheel>")
+                app.output_text.unbind("<Button-4>")
+                app.output_text.unbind("<Button-5>")
+                app.output_text.unbind("<Up>")
+                app.output_text.unbind("<Down>")
+                app.output_text.unbind("<Prior>")
+                app.output_text.unbind("<Next>")
+                app.output_text.unbind("<Home>")
+                app.output_text.unbind("<End>")
+            
+            app.root.after(0, enable_scroll_events)
+        else:
+            # Disable scrollbar during generation
+            app.root.after(0, lambda: app.output_text.configure(yscrollcommand=None))
+            app.root.after(0, lambda: app.scrollbar.config(command=None))
+            
+            # Disable scroll events
+            def disable_scroll_events():
+                def disable_scroll(event):
+                    return "break"
+                
+                app.output_text.bind("<MouseWheel>", disable_scroll)
+                app.output_text.bind("<Button-4>", disable_scroll)
+                app.output_text.bind("<Button-5>", disable_scroll)
+                app.output_text.bind("<Up>", disable_scroll)
+                app.output_text.bind("<Down>", disable_scroll)
+                app.output_text.bind("<Prior>", disable_scroll)
+                app.output_text.bind("<Next>", disable_scroll)
+                app.output_text.bind("<Home>", disable_scroll)
+                app.output_text.bind("<End>", disable_scroll)
+            
+            app.root.after(0, disable_scroll_events)
+
     # Handle AppLocker checkbox state
     if hasattr(app, 'applocker_checkbox'):
         if enabled:
-            # Re-enable AppLocker checkbox when generation is complete
-            app.root.after(0, lambda: app.applocker_checkbox.configure(state=tb.NORMAL))
+            # Only re-enable AppLocker checkbox for shellcode techniques after generation
+            technique = app.selected_technique.get()
+            if technique not in ["csproj msbuild", "VBAMacro", "HTARunner"]:
+                app.root.after(0, lambda: app.applocker_checkbox.configure(state=tb.NORMAL))
         else:
             # Disable and uncheck AppLocker checkbox when generation starts
             app.root.after(0, lambda: app.applocker_checkbox.configure(state=tb.DISABLED))
@@ -461,14 +629,15 @@ def load_and_display_applocker_bypass(app):
             print(f"[!] No template found for technique: {current_technique}")
             return
         
-        # Load the applockerBypass.json template
-        applocker_path = "templates/applockerBypass.json"
-        if not os.path.exists(applocker_path):
-            print(f"[!] AppLocker bypass template not found: {applocker_path}")
+        # Load the AppLocker bypass template from new modular system
+        from core.template_loader import load_template_data
+        all_templates = load_template_data()
+        
+        if "applocker_bypass" not in all_templates:
+            print(f"[!] AppLocker bypass template not found in modular system")
             return
             
-        with open(applocker_path, "r") as f:
-            applocker_template = json.load(f)
+        applocker_template = all_templates["applocker_bypass"]
         
         # Generate the technique with actual AES encryption first
         # This ensures we get real encrypted shellcode, key, and IV values
@@ -695,26 +864,98 @@ def build_applocker_script_directly(technique_template, applocker_template):
             script_lines.append(f"    {const}")
         script_lines.append("")
     
-    # Add function definitions (like AESDecrypt) to Sample class since they're needed there
-    if technique_function_defs:
-        script_lines.append("    // Helper Functions")
-        for line in technique_function_defs:
-            if line.strip().startswith("static"):
-                script_lines.append(f"    {line}")
-            elif line.strip() in ["{", "}"]:
-                script_lines.append(f"    {line}")
-            elif line.strip():
-                script_lines.append(f"    {line}")
-            else:
-                script_lines.append(line)
-        script_lines.append("")
-    
-    # Add helper functions from applocker template if they exist and not already included
+    # Merge all function definitions (including structs from AppLocker template)
+    all_function_defs = list(technique_function_defs) if technique_function_defs else []
     applocker_function_defs = applocker_template.get("function_definitions", [])
-    if applocker_function_defs and not technique_function_defs:
-        script_lines.append("    // AppLocker Helper Functions")
-        for line in applocker_function_defs:
-            if line.strip().startswith("static"):
+    if applocker_function_defs:
+        # Smart deduplication - identify structs and functions to avoid duplicates
+        existing_structs = set()
+        existing_functions = set()
+        
+        # First, identify what's already in technique_function_defs
+        for line in all_function_defs:
+            if line.strip().startswith("public struct "):
+                struct_name = line.strip().replace("public struct ", "").strip()
+                existing_structs.add(struct_name)
+            elif line.strip().startswith("static ") and "(" in line:
+                func_signature = line.strip().split("(")[0]
+                existing_functions.add(func_signature)
+        
+        # Add AppLocker definitions that don't conflict
+        i = 0
+        while i < len(applocker_function_defs):
+            line = applocker_function_defs[i]
+            
+            if line.strip().startswith("public struct "):
+                # Check if this struct already exists
+                struct_name = line.strip().replace("public struct ", "").strip()
+                if struct_name not in existing_structs:
+                    # Add the entire struct definition
+                    all_function_defs.append(line)
+                    existing_structs.add(struct_name)
+                    i += 1
+                    # Add struct body lines until closing brace
+                    while i < len(applocker_function_defs):
+                        struct_line = applocker_function_defs[i]
+                        all_function_defs.append(struct_line)
+                        if struct_line.strip() == "}":
+                            break
+                        i += 1
+                else:
+                    # Skip this struct - it already exists
+                    i += 1
+                    while i < len(applocker_function_defs) and applocker_function_defs[i].strip() != "}":
+                        i += 1
+                    # Skip the closing brace too
+                    if i < len(applocker_function_defs) and applocker_function_defs[i].strip() == "}":
+                        i += 1
+            elif line.strip().startswith("static ") and "(" in line:
+                # Check if this function already exists
+                func_signature = line.strip().split("(")[0]
+                if func_signature not in existing_functions:
+                    # Add the entire function definition including body
+                    all_function_defs.append(line)
+                    existing_functions.add(func_signature)
+                    i += 1
+                    # Add function body lines until we find the matching closing brace
+                    brace_count = 0
+                    while i < len(applocker_function_defs):
+                        func_line = applocker_function_defs[i]
+                        all_function_defs.append(func_line)
+                        if func_line.strip() == "{":
+                            brace_count += 1
+                        elif func_line.strip() == "}":
+                            brace_count -= 1
+                            if brace_count == 0:
+                                break
+                        i += 1
+                else:
+                    # Skip this function - it already exists
+                    i += 1
+                    brace_count = 0
+                    while i < len(applocker_function_defs):
+                        func_line = applocker_function_defs[i]
+                        if func_line.strip() == "{":
+                            brace_count += 1
+                        elif func_line.strip() == "}":
+                            brace_count -= 1
+                            if brace_count == 0:
+                                break
+                        i += 1
+                    # Skip the closing brace too
+                    if i < len(applocker_function_defs) and applocker_function_defs[i].strip() == "}":
+                        i += 1
+            else:
+                # Regular line (struct body, function body, etc.)
+                all_function_defs.append(line)
+            
+            i += 1
+    
+    # Add all function definitions to Sample class
+    if all_function_defs:
+        script_lines.append("    // Helper Functions and Structs")
+        for line in all_function_defs:
+            if line.strip().startswith("static") or line.strip().startswith("public struct") or line.strip().startswith("[StructLayout"):
                 script_lines.append(f"    {line}")
             elif line.strip() in ["{", "}"]:
                 script_lines.append(f"    {line}")
@@ -858,26 +1099,98 @@ def build_applocker_script_with_real_values(technique_template, applocker_templa
             script_lines.append(f"    {const}")
         script_lines.append("")
     
-    # Add function definitions (like AESDecrypt) to Sample class since they're needed there
-    if technique_function_defs:
-        script_lines.append("    // Helper Functions")
-        for line in technique_function_defs:
-            if line.strip().startswith("static"):
-                script_lines.append(f"    {line}")
-            elif line.strip() in ["{", "}"]:
-                script_lines.append(f"    {line}")
-            elif line.strip():
-                script_lines.append(f"    {line}")
-            else:
-                script_lines.append(line)
-        script_lines.append("")
-    
-    # Add helper functions from applocker template if they exist and not already included
+    # Merge all function definitions (including structs from AppLocker template)
+    all_function_defs = list(technique_function_defs) if technique_function_defs else []
     applocker_function_defs = applocker_template.get("function_definitions", [])
-    if applocker_function_defs and not technique_function_defs:
-        script_lines.append("    // AppLocker Helper Functions")
-        for line in applocker_function_defs:
-            if line.strip().startswith("static"):
+    if applocker_function_defs:
+        # Smart deduplication - identify structs and functions to avoid duplicates
+        existing_structs = set()
+        existing_functions = set()
+        
+        # First, identify what's already in technique_function_defs
+        for line in all_function_defs:
+            if line.strip().startswith("public struct "):
+                struct_name = line.strip().replace("public struct ", "").strip()
+                existing_structs.add(struct_name)
+            elif line.strip().startswith("static ") and "(" in line:
+                func_signature = line.strip().split("(")[0]
+                existing_functions.add(func_signature)
+        
+        # Add AppLocker definitions that don't conflict
+        i = 0
+        while i < len(applocker_function_defs):
+            line = applocker_function_defs[i]
+            
+            if line.strip().startswith("public struct "):
+                # Check if this struct already exists
+                struct_name = line.strip().replace("public struct ", "").strip()
+                if struct_name not in existing_structs:
+                    # Add the entire struct definition
+                    all_function_defs.append(line)
+                    existing_structs.add(struct_name)
+                    i += 1
+                    # Add struct body lines until closing brace
+                    while i < len(applocker_function_defs):
+                        struct_line = applocker_function_defs[i]
+                        all_function_defs.append(struct_line)
+                        if struct_line.strip() == "}":
+                            break
+                        i += 1
+                else:
+                    # Skip this struct - it already exists
+                    i += 1
+                    while i < len(applocker_function_defs) and applocker_function_defs[i].strip() != "}":
+                        i += 1
+                    # Skip the closing brace too
+                    if i < len(applocker_function_defs) and applocker_function_defs[i].strip() == "}":
+                        i += 1
+            elif line.strip().startswith("static ") and "(" in line:
+                # Check if this function already exists
+                func_signature = line.strip().split("(")[0]
+                if func_signature not in existing_functions:
+                    # Add the entire function definition including body
+                    all_function_defs.append(line)
+                    existing_functions.add(func_signature)
+                    i += 1
+                    # Add function body lines until we find the matching closing brace
+                    brace_count = 0
+                    while i < len(applocker_function_defs):
+                        func_line = applocker_function_defs[i]
+                        all_function_defs.append(func_line)
+                        if func_line.strip() == "{":
+                            brace_count += 1
+                        elif func_line.strip() == "}":
+                            brace_count -= 1
+                            if brace_count == 0:
+                                break
+                        i += 1
+                else:
+                    # Skip this function - it already exists
+                    i += 1
+                    brace_count = 0
+                    while i < len(applocker_function_defs):
+                        func_line = applocker_function_defs[i]
+                        if func_line.strip() == "{":
+                            brace_count += 1
+                        elif func_line.strip() == "}":
+                            brace_count -= 1
+                            if brace_count == 0:
+                                break
+                        i += 1
+                    # Skip the closing brace too
+                    if i < len(applocker_function_defs) and applocker_function_defs[i].strip() == "}":
+                        i += 1
+            else:
+                # Regular line (struct body, function body, etc.)
+                all_function_defs.append(line)
+            
+            i += 1
+    
+    # Add all function definitions to Sample class
+    if all_function_defs:
+        script_lines.append("    // Helper Functions and Structs")
+        for line in all_function_defs:
+            if line.strip().startswith("static") or line.strip().startswith("public struct") or line.strip().startswith("[StructLayout"):
                 script_lines.append(f"    {line}")
             elif line.strip() in ["{", "}"]:
                 script_lines.append(f"    {line}")
@@ -900,3 +1213,54 @@ def build_applocker_script_with_real_values(technique_template, applocker_templa
     script_lines.append("}")
     
     return "\n".join(script_lines)
+
+# Function to resize center background image based on frame width
+def resize_center_image(output_refs, frame_width):
+    """Resize the center background image to fit the frame width"""
+    try:
+        # Calculate image size based on frame width (80% of frame width, min 20px, max 150px)
+        image_size = max(20, min(150, int(frame_width * 0.8)))
+        
+        # Resize the image
+        resized_image = ImageTk.PhotoImage(
+            output_refs["output_bg_original"].resize((image_size, image_size))
+        )
+        
+        # Update the image in the text widget
+        output_text = output_refs["output_text"]
+        output_text.configure(state="normal")
+        
+        # Delete existing image and insert new one
+        output_text.delete("1.0", "end")
+        output_text.image_create("1.0", image=resized_image)
+        
+        output_text.configure(state="disabled")
+        
+        # Update the reference
+        output_refs["output_bg_image"] = resized_image
+        
+    except Exception as e:
+        print(f"Error resizing center image: {e}")
+
+# Handle technique selection changes
+def on_technique_change(app):
+    """Handle when user changes technique selection - update build button and clear center frame"""
+    update_build_button(app)
+    clear_center_frame(app)
+
+def clear_center_frame(app):
+    """Clear the center frame and show background image when technique changes"""
+    try:
+        if hasattr(app, 'output_text') and hasattr(app, 'output_bg_image'):
+            app.output_text.configure(state="normal")
+            app.output_text.delete("1.0", tb.END)
+            app.output_text.image_create("1.0", image=app.output_bg_image)
+            app.output_text.tag_lower("sel")
+            app.output_text.configure(state="disabled")
+            
+            # Reset AppLocker checkbox if it was checked
+            if hasattr(app, 'applocker_var'):
+                app.applocker_var.set(False)
+                
+    except Exception as e:
+        print(f"Error clearing center frame: {e}")

