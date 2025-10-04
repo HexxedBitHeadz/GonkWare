@@ -1035,11 +1035,17 @@ def generate_hta_from_template(interface_name, port, template_data=None):
             formatted_commands[key] = template
     
     # Build the JavaScript execution code
+    # Fix f-string backslash issue by doing replacements outside f-string
+    alph_escaped = alph_array.replace('"', '\\"')
+    ranalph_escaped = ranalph_array.replace('"', '\\"')
+    num_escaped = num_array.replace('"', '\\"')
+    sym_escaped = sym_array.replace('"', '\\"')
+    
     javascript_lines = [
-        f"    var alph = {alph_array.replace('\"', '\"')};",
-        f"    var ranalph = {ranalph_array.replace('\"', '\"')};", 
-        f"    var num = {num_array.replace('\"', '\"')};",
-        f"    var sym = {sym_array.replace('\"', '\"')};",
+        f"    var alph = {alph_escaped};",
+        f"    var ranalph = {ranalph_escaped};", 
+        f"    var num = {num_escaped};",
+        f"    var sym = {sym_escaped};",
         "",
         f"    var sample = \"{formatted_commands.get('certutil_base', '')}\";",
         "",
