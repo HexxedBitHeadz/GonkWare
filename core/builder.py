@@ -1,5 +1,6 @@
 import os, re, subprocess, base64
 import logging
+import tkinter as tk
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
 
@@ -1115,7 +1116,7 @@ def generate_shellcode_threaded(app, update_status_fn):
 
     app.top_status_label.config(text="Shellcode")
     app.output_text.configure(state="normal")
-    app.output_text.delete("1.0", tb.END)
+    app.output_text.delete("1.0", tk.END)
     app.output_text.configure(state="disabled")
 
     thread = threading.Thread(
@@ -1248,7 +1249,7 @@ $client.Close()"""
         app.root.after(0, lambda: finish_shellcode_generate(app, final_script, shellcode_only, msf_cmd, update_status_fn))
 
     except Exception as e:
-        app.root.after(0, lambda: app.output_text.insert(tb.END, f"\n[!] Error: {str(e)}"))
+        app.root.after(0, lambda: app.output_text.insert(tk.END, f"\n[!] Error: {str(e)}"))
         app.root.after(0, lambda: update_status_fn(app, enabled=True))
 
 def finish_shellcode_generate(app, script, shellcode_only, msf_cmd, update_status_fn):
@@ -1265,18 +1266,18 @@ def finish_shellcode_generate(app, script, shellcode_only, msf_cmd, update_statu
         background="#FEFE00",
         insertbackground="#000000"
     )
-    app.msf_entry.delete("1.0", tb.END)
+    app.msf_entry.delete("1.0", tk.END)
     app.msf_entry.insert("1.0", msf_cmd)
     app.msf_entry.configure(state="disabled")
 
-    app.copy_button.configure(state=tb.NORMAL)
-    app.build_button.configure(state=tb.NORMAL)
+    app.copy_button.configure(state=tk.NORMAL)
+    app.build_button.configure(state=tk.NORMAL)
     
     # Enable applocker checkbox after code is generated (only for shellcode techniques, not CSProj, VBAMacro, or HTARunner)
     if hasattr(app, 'applocker_checkbox'):
         technique = app.selected_technique.get()
         if technique not in ["csproj msbuild", "VBAMacro", "HTARunner"]:
-            app.applocker_checkbox.configure(state=tb.NORMAL)
+            app.applocker_checkbox.configure(state=tk.NORMAL)
 
     app.start_marquee()
     app.loading_image_label.place_forget()

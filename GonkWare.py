@@ -81,7 +81,7 @@ class GonkWareApp:
     def create_frames(self):
         # Create the main notebook (tabbed) container
         self.notebook = tb.Notebook(self.root, bootstyle="dark")
-        self.notebook.pack(fill=tb.BOTH, expand=True, padx=5, pady=5)
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         # Create the first tab for the existing tool
         self.create_shellcode_tab()
@@ -154,7 +154,7 @@ class GonkWareApp:
         
         # Add some example controls
         tool_frame = tb.Frame(parent_frame, bootstyle="dark")
-        tool_frame.pack(fill=tb.BOTH, expand=True, padx=20, pady=10)
+        tool_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
         
         # Example button
         example_button = tb.Button(tool_frame, text="Execute Tool", 
@@ -166,7 +166,7 @@ class GonkWareApp:
                            background="#000000", 
                            foreground="#00ff00",
                            font=("Consolas", 10))
-        text_area.pack(fill=tb.BOTH, expand=True, pady=10)
+        text_area.pack(fill=tk.BOTH, expand=True, pady=10)
         text_area.insert("1.0", "This is where your new tool's output would appear...")
 
     def create_mimikatz_parser_tab(self, parent_frame):
@@ -176,7 +176,7 @@ class GonkWareApp:
         # Main container with dark styling - this should match shellcode generator
         main_frame = tb.Frame(parent_frame, bootstyle="dark")
         main_frame.configure(style="TFrame")  # Ensure black background
-        main_frame.pack(fill=tb.BOTH, expand=True, padx=10, pady=10)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Title with cyberpunk colors using existing style
         title_label = tb.Label(main_frame, text="MIMIKATZ PARSER", 
@@ -187,12 +187,12 @@ class GonkWareApp:
         # Input section with cyberpunk colors - Make horizontal layout
         input_frame = tb.Frame(main_frame, bootstyle="dark")
         input_frame.configure(style="TFrame")  # Ensure black background
-        input_frame.pack(fill=tb.X, pady=(0, 15))
+        input_frame.pack(fill=tk.X, pady=(0, 15))
         
         # Left side - Input text area (reduced width more)
         input_left_frame = tb.Frame(input_frame, bootstyle="dark")
         input_left_frame.configure(style="TFrame")
-        input_left_frame.pack(side=tb.LEFT, fill=tb.BOTH, expand=False, padx=(0, 15))  # Changed expand=False and more padding
+        input_left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=False, padx=(0, 15))  # Changed expand=False and more padding
         
         # Set a specific width for the input area
         input_left_frame.configure(width=400)  # Fixed width instead of expanding
@@ -204,18 +204,18 @@ class GonkWareApp:
         # Input text area with cyberpunk styling - Reduced height and width
         input_text_frame = tb.Frame(input_left_frame, bootstyle="dark")
         input_text_frame.configure(style="TFrame")  # Ensure black background
-        input_text_frame.pack(fill=tb.BOTH, expand=True, pady=(0, 10))
+        input_text_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
         
         input_scrollbar = tb.Scrollbar(input_text_frame, bootstyle="dark")
-        input_scrollbar.pack(side=tb.RIGHT, fill=tb.Y)
+        input_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         input_text = tb.Text(input_text_frame, height=2, width=50,  # Further reduced height to 2
                             background="#000000", foreground="#fefe00",
-                            font=("Consolas", 10, "bold"), wrap=tb.WORD,
+                            font=("Consolas", 10, "bold"), wrap=tk.WORD,
                             insertbackground="#fefe00",
                             selectbackground="#333333",
                             yscrollcommand=input_scrollbar.set)
-        input_text.pack(side=tb.LEFT, fill=tb.BOTH, expand=True)
+        input_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         # Force the colors after creation
         input_text.configure(background="#000000", foreground="#fefe00")
         input_scrollbar.config(command=input_text.yview)
@@ -234,24 +234,24 @@ Example formats supported:
         # Button row directly under the text area in the left frame
         button_frame = tb.Frame(input_left_frame, bootstyle="dark")
         button_frame.configure(style="TFrame")
-        button_frame.pack(fill=tb.X, pady=(10, 0))
+        button_frame.pack(fill=tk.X, pady=(10, 0))
         
         # Parse Credentials button (moved to far left)
         parse_button = tb.Button(button_frame, text="Parse Credentials", 
                                bootstyle="danger-outline", width=18,
                                command=lambda: self.parse_mimikatz_output(input_text, passwords_listbox, hashes_listbox, results_text))
-        parse_button.pack(side=tb.LEFT, pady=5)
+        parse_button.pack(side=tk.LEFT, pady=5)
         
         # Clear button (next to Parse Credentials)
         clear_button = tb.Button(button_frame, text="Clear All", 
                                bootstyle="secondary-outline", width=12,
                                command=lambda: self.clear_mimikatz_results(input_text, passwords_listbox, hashes_listbox, results_text))
-        clear_button.pack(side=tb.LEFT, padx=(10, 0), pady=5)
+        clear_button.pack(side=tk.LEFT, padx=(10, 0), pady=5)
         
         # Right side - Network listener controls (more space)
         listener_right_frame = tb.Frame(input_frame, bootstyle="dark")
         listener_right_frame.configure(style="TFrame")
-        listener_right_frame.pack(side=tb.RIGHT, fill=tb.BOTH, expand=True, padx=(15, 0))  # More space and padding
+        listener_right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(15, 0))  # More space and padding
         
         # Network listener section header
         listener_header = tb.Label(listener_right_frame, text="NETWORK LISTENER", 
@@ -262,12 +262,12 @@ Example formats supported:
         # Interface and Port configuration - Horizontal layout
         config_frame = tb.Frame(listener_right_frame, bootstyle="dark")
         config_frame.configure(style="TFrame")
-        config_frame.pack(fill=tb.X, pady=(0, 15))
+        config_frame.pack(fill=tk.X, pady=(0, 15))
         
         # Interface configuration (left side)
         interface_frame = tb.Frame(config_frame, bootstyle="dark")
         interface_frame.configure(style="TFrame")
-        interface_frame.pack(side=tb.LEFT, fill=tb.X, expand=True, padx=(0, 10))
+        interface_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
         
         interface_label = tb.Label(interface_frame, text="Interface:", 
                                    foreground="#91ddd3", background="#000000",
@@ -324,7 +324,7 @@ Example formats supported:
                                         values=self.network_interface_options, state="readonly",
                                         style="InterfaceCombo.TCombobox", width=12,
                                         font=("Consolas", 9, "bold"))
-        interface_dropdown.pack(fill=tb.X)
+        interface_dropdown.pack(fill=tk.X)
         
         # Force the dropdown colors after creation
         interface_dropdown.configure(background="#000000", foreground="#fefe00")
@@ -335,7 +335,7 @@ Example formats supported:
         # Port configuration (right side)
         port_frame = tb.Frame(config_frame, bootstyle="dark")
         port_frame.configure(style="TFrame")
-        port_frame.pack(side=tb.RIGHT, fill=tb.X, expand=True, padx=(10, 0))
+        port_frame.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(10, 0))
         
         port_label = tb.Label(port_frame, text="Port:", 
                              foreground="#91ddd3", background="#000000",
@@ -352,7 +352,7 @@ Example formats supported:
                              highlightbackground="#333333",
                              highlightcolor="#fefe00",
                              borderwidth=1, relief="solid")
-        port_entry.pack(fill=tb.X)
+        port_entry.pack(fill=tk.X)
         port_entry.insert(0, "4444")
         port_entry.bind('<Return>', self.update_listener_port)
         port_entry.bind('<FocusOut>', self.update_listener_port)
@@ -380,7 +380,7 @@ Example formats supported:
         # PowerShell command generation section
         ps_frame = tb.Frame(listener_right_frame, bootstyle="dark")
         ps_frame.configure(style="TFrame")
-        ps_frame.pack(fill=tb.X, pady=(0, 10))
+        ps_frame.pack(fill=tk.X, pady=(0, 10))
         
         # PowerShell command label
         ps_label = tb.Label(ps_frame, text="POWERSHELL COMMAND:",
@@ -395,7 +395,7 @@ Example formats supported:
                                insertbackground="#000000",
                                wrap="none", state="disabled",
                                borderwidth=1, relief="solid")
-        self.ps_entry.pack(fill=tb.X, pady=(2, 5))
+        self.ps_entry.pack(fill=tk.X, pady=(2, 5))
         
         # Copy PowerShell command button (centered)
         copy_ps_button = tb.Button(ps_frame, text="Copy PS Command",
@@ -406,12 +406,12 @@ Example formats supported:
         # Results section with two columns - Passwords and Hashes only
         results_frame = tb.Frame(main_frame, bootstyle="dark")
         results_frame.configure(style="TFrame")  # Ensure black background
-        results_frame.pack(fill=tb.X, expand=False, pady=(10, 0))  # Changed to fill=X only
+        results_frame.pack(fill=tk.X, expand=False, pady=(10, 0))  # Changed to fill=X only
 
         # Passwords column (left side) - Equal width
         passwords_frame = tb.Frame(results_frame, bootstyle="dark")
         passwords_frame.configure(style="TFrame")  # Ensure black background
-        passwords_frame.pack(side=tb.LEFT, fill=tb.BOTH, expand=True, padx=(0, 2.5))
+        passwords_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 2.5))
         
         passwords_label = tb.Label(passwords_frame, text="PASSWORDS FOUND:", 
                                   style="SectionLabel.TLabel")
@@ -420,10 +420,10 @@ Example formats supported:
         # Passwords listbox with scrollbar - Reduced height
         passwords_listbox_frame = tb.Frame(passwords_frame, bootstyle="dark")
         passwords_listbox_frame.configure(style="TFrame")
-        passwords_listbox_frame.pack(fill=tb.BOTH, expand=True, pady=(0, 10))
+        passwords_listbox_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
         
         passwords_scrollbar = tb.Scrollbar(passwords_listbox_frame, bootstyle="dark")
-        passwords_scrollbar.pack(side=tb.RIGHT, fill=tb.Y)
+        passwords_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         passwords_listbox = tk.Listbox(passwords_listbox_frame, height=4,  # Reduced from 5 to 4
                                       background="#000000", foreground="#00ff00",
@@ -433,7 +433,7 @@ Example formats supported:
                                       highlightbackground="#000000",
                                       highlightcolor="#00ff00",
                                       yscrollcommand=passwords_scrollbar.set)
-        passwords_listbox.pack(side=tb.LEFT, fill=tb.BOTH, expand=True)
+        passwords_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         # Force the black background after creation
         passwords_listbox.configure(background="#000000", foreground="#00ff00")
         passwords_scrollbar.config(command=passwords_listbox.yview)
@@ -441,18 +441,18 @@ Example formats supported:
         # Horizontal button frame for password actions
         password_button_frame = tb.Frame(passwords_frame, bootstyle="dark")
         password_button_frame.configure(style="TFrame")
-        password_button_frame.pack(fill=tb.X, pady=(0, 10))
+        password_button_frame.pack(fill=tk.X, pady=(0, 10))
         
         # Copy Password button (left side)
         copy_password_button = tb.Button(password_button_frame, text="Copy Password", 
                                         bootstyle="success-outline", width=12,
                                         command=lambda: self.copy_listbox_selection(passwords_listbox, "Password"))
-        copy_password_button.pack(side=tb.LEFT)
+        copy_password_button.pack(side=tk.LEFT)
 
         # Hashes column (right side) - Equal width
         hashes_frame = tb.Frame(results_frame, bootstyle="dark")
         hashes_frame.configure(style="TFrame")  # Ensure black background
-        hashes_frame.pack(side=tb.LEFT, fill=tb.BOTH, expand=True, padx=(2.5, 0))
+        hashes_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(2.5, 0))
         
         hashes_label = tb.Label(hashes_frame, text="HASHES FOUND:", 
                                style="SectionLabel.TLabel")
@@ -461,10 +461,10 @@ Example formats supported:
         # Hashes listbox with scrollbar - Reduced height
         hashes_listbox_frame = tb.Frame(hashes_frame, bootstyle="dark")
         hashes_listbox_frame.configure(style="TFrame")
-        hashes_listbox_frame.pack(fill=tb.BOTH, expand=True, pady=(0, 10))
+        hashes_listbox_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
         
         hashes_scrollbar = tb.Scrollbar(hashes_listbox_frame, bootstyle="dark")
-        hashes_scrollbar.pack(side=tb.RIGHT, fill=tb.Y)
+        hashes_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         hashes_listbox = tk.Listbox(hashes_listbox_frame, height=4,  # Reduced from 5 to 4
                                    background="#000000", foreground="#ec1c3a",
@@ -474,7 +474,7 @@ Example formats supported:
                                    highlightbackground="#000000",
                                    highlightcolor="#ec1c3a",
                                    yscrollcommand=hashes_scrollbar.set)
-        hashes_listbox.pack(side=tb.LEFT, fill=tb.BOTH, expand=True)
+        hashes_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         # Force the black background after creation
         hashes_listbox.configure(background="#000000", foreground="#ec1c3a")
         hashes_scrollbar.config(command=hashes_listbox.yview)
@@ -482,19 +482,19 @@ Example formats supported:
         # Horizontal button frame for hash actions
         hash_button_frame = tb.Frame(hashes_frame, bootstyle="dark")
         hash_button_frame.configure(style="TFrame")
-        hash_button_frame.pack(fill=tb.X, pady=(0, 5))
+        hash_button_frame.pack(fill=tk.X, pady=(0, 5))
         
         # Copy Hash button (left side)
         copy_hash_button = tb.Button(hash_button_frame, text="Copy Hash", 
                                     bootstyle="warning-outline", width=12,
                                     command=lambda: self.copy_listbox_selection(hashes_listbox, "Hash"))
-        copy_hash_button.pack(side=tb.LEFT, padx=(0, 5))
+        copy_hash_button.pack(side=tk.LEFT, padx=(0, 5))
         
         # Export results button (right side)
         export_button = tb.Button(hash_button_frame, text="Export Results", 
                                  bootstyle="secondary-outline", width=12,
                                  command=lambda: self.export_mimikatz_results(results_text))
-        export_button.pack(side=tb.RIGHT)
+        export_button.pack(side=tk.RIGHT)
         
         # Detailed results section
         results_label = tb.Label(main_frame, text="PARSING RESULTS:", 
@@ -503,18 +503,18 @@ Example formats supported:
         
         results_text_frame = tb.Frame(main_frame, bootstyle="dark")
         results_text_frame.configure(style="TFrame")  # Ensure black background
-        results_text_frame.pack(fill=tb.BOTH, expand=True, pady=(0, 10))  # Allow expansion and more bottom padding
+        results_text_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))  # Allow expansion and more bottom padding
         
         results_scrollbar = tb.Scrollbar(results_text_frame, bootstyle="dark")
-        results_scrollbar.pack(side=tb.RIGHT, fill=tb.Y)
+        results_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         results_text = tb.Text(results_text_frame, height=8,  # Increased from 4 to 8
                               background="#000000", foreground="#fefe00",
-                              font=("Consolas", 11, "bold"), wrap=tb.WORD,  # Increased font from 10 to 11
+                              font=("Consolas", 11, "bold"), wrap=tk.WORD,  # Increased font from 10 to 11
                               insertbackground="#fefe00",
                               selectbackground="#333333",
                               yscrollcommand=results_scrollbar.set)
-        results_text.pack(side=tb.LEFT, fill=tb.BOTH, expand=True)
+        results_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         # Force the colors after creation
         results_text.configure(background="#000000", foreground="#fefe00")
         results_scrollbar.config(command=results_text.yview)
@@ -1110,7 +1110,7 @@ Example formats supported:
         if hasattr(self, 'ps_entry'):
             self.ps_entry.configure(state="normal")
             self.ps_entry.configure(background="#FEFE00", foreground="#000000")  # Force yellow background
-            self.ps_entry.delete("1.0", tb.END)
+            self.ps_entry.delete("1.0", tk.END)
             self.ps_entry.insert("1.0", "Listener stopped - no command available")
             self.ps_entry.configure(state="disabled")
             self.ps_entry.configure(background="#FEFE00", foreground="#000000")  # Force yellow background again
@@ -1409,7 +1409,7 @@ Example formats supported:
         # Update the display using marquee scrolling (similar to MSF command)
         self.ps_entry.configure(state="normal")
         self.ps_entry.configure(background="#FEFE00", foreground="#000000")  # Force yellow background
-        self.ps_entry.delete("1.0", tb.END)
+        self.ps_entry.delete("1.0", tk.END)
         
         # If command is longer than display width, start marquee
         display_width = 35
@@ -1444,7 +1444,7 @@ Example formats supported:
                     # Update display
                     self.ps_entry.configure(state="normal")
                     self.ps_entry.configure(background="#FEFE00", foreground="#000000")  # Force yellow background
-                    self.ps_entry.delete("1.0", tb.END)
+                    self.ps_entry.delete("1.0", tk.END)
                     self.ps_entry.insert("1.0", display_text)
                     self.ps_entry.configure(state="disabled")
                     self.ps_entry.configure(background="#FEFE00", foreground="#000000")  # Force yellow background again
@@ -1504,7 +1504,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         # Main container with dark styling
         main_frame = tb.Frame(parent_frame, bootstyle="dark")
         main_frame.configure(style="TFrame")
-        main_frame.pack(fill=tb.BOTH, expand=True, padx=10, pady=10)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Title
         title_label = tb.Label(main_frame, text="IMPACKET COMMAND GENERATOR", 
@@ -1515,7 +1515,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         # Credential import section
         import_frame = tb.Frame(main_frame, bootstyle="dark")
         import_frame.configure(style="TFrame")
-        import_frame.pack(fill=tb.X, pady=(0, 20))
+        import_frame.pack(fill=tk.X, pady=(0, 20))
         
         import_label = tb.Label(import_frame, text="IMPORT CREDENTIALS FROM MIMIKATZ:", 
                                style="SectionLabel.TLabel")
@@ -1524,22 +1524,22 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         # Import button and status
         import_button_frame = tb.Frame(import_frame, bootstyle="dark")
         import_button_frame.configure(style="TFrame")
-        import_button_frame.pack(fill=tb.X)
+        import_button_frame.pack(fill=tk.X)
         
         import_creds_button = tb.Button(import_button_frame, text="Import from Mimikatz Parser", 
                                        bootstyle="info", width=25,
                                        command=lambda: self.import_mimikatz_credentials())
-        import_creds_button.pack(side=tb.LEFT, padx=(0, 10))
+        import_creds_button.pack(side=tk.LEFT, padx=(0, 10))
         
         self.import_status = tb.Label(import_button_frame, text="No credentials imported", 
                                      foreground="#fefe00", background="#000000",
                                      font=("Consolas", 10))
-        self.import_status.pack(side=tb.LEFT)
+        self.import_status.pack(side=tk.LEFT)
         
         # Target configuration section
         target_frame = tb.Frame(main_frame, bootstyle="dark")
         target_frame.configure(style="TFrame")
-        target_frame.pack(fill=tb.X, pady=(0, 20))
+        target_frame.pack(fill=tk.X, pady=(0, 20))
         
         target_label = tb.Label(target_frame, text="TARGET CONFIGURATION:", 
                                style="SectionLabel.TLabel")
@@ -1548,12 +1548,12 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         # Target IP and Domain in horizontal layout
         target_config_frame = tb.Frame(target_frame, bootstyle="dark")
         target_config_frame.configure(style="TFrame")
-        target_config_frame.pack(fill=tb.X)
+        target_config_frame.pack(fill=tk.X)
         
         # Target IP
         target_ip_frame = tb.Frame(target_config_frame, bootstyle="dark")
         target_ip_frame.configure(style="TFrame")
-        target_ip_frame.pack(side=tb.LEFT, fill=tb.X, expand=True, padx=(0, 10))
+        target_ip_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
         
         target_ip_label = tb.Label(target_ip_frame, text="Target IP/Hostname:", 
                                   foreground="#91ddd3", background="#000000",
@@ -1570,13 +1570,13 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
                                        highlightbackground="#333333",
                                        highlightcolor="#fefe00",
                                        borderwidth=1, relief="solid")
-        self.target_ip_entry.pack(fill=tb.X, pady=(2, 0))
+        self.target_ip_entry.pack(fill=tk.X, pady=(2, 0))
         self.target_ip_entry.insert(0, "192.168.1.100")
         
         # Domain
         domain_frame = tb.Frame(target_config_frame, bootstyle="dark")
         domain_frame.configure(style="TFrame")
-        domain_frame.pack(side=tb.LEFT, fill=tb.X, expand=True)
+        domain_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
         domain_label = tb.Label(domain_frame, text="Domain:", 
                                foreground="#91ddd3", background="#000000",
@@ -1593,13 +1593,13 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
                                     highlightbackground="#333333",
                                     highlightcolor="#fefe00",
                                     borderwidth=1, relief="solid")
-        self.domain_entry.pack(fill=tb.X, pady=(2, 0))
+        self.domain_entry.pack(fill=tk.X, pady=(2, 0))
         self.domain_entry.insert(0, "DOMAIN.LOCAL")
         
         # Tool selection section
         tool_frame = tb.Frame(main_frame, bootstyle="dark")
         tool_frame.configure(style="TFrame")
-        tool_frame.pack(fill=tb.X, pady=(0, 20))
+        tool_frame.pack(fill=tk.X, pady=(0, 20))
         
         tool_label = tb.Label(tool_frame, text="SELECT TOOL & TECHNIQUE:", 
                              style="SectionLabel.TLabel")
@@ -1608,7 +1608,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         # Tool selection dropdown
         tool_selection_frame = tb.Frame(tool_frame, bootstyle="dark")
         tool_selection_frame.configure(style="TFrame")
-        tool_selection_frame.pack(fill=tb.X)
+        tool_selection_frame.pack(fill=tk.X)
         
         self.selected_tool = tb.StringVar(value="psexec.py")
         tools = [
@@ -1646,13 +1646,13 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         tool_dropdown = tb.Combobox(tool_selection_frame, textvariable=self.selected_tool,
                                    values=tools, state="readonly", width=50,
                                    font=("Consolas", 10), style="ToolCombo.TCombobox")
-        tool_dropdown.pack(fill=tb.X)
+        tool_dropdown.pack(fill=tk.X)
         tool_dropdown.bind('<<ComboboxSelected>>', self.update_tool_selection)
         
         # Credential selection section - Two columns
         cred_frame = tb.Frame(main_frame, bootstyle="dark")
         cred_frame.configure(style="TFrame")
-        cred_frame.pack(fill=tb.X, pady=(0, 20))
+        cred_frame.pack(fill=tk.X, pady=(0, 20))
         
         cred_label = tb.Label(cred_frame, text="SELECT CREDENTIALS:", 
                              style="SectionLabel.TLabel")
@@ -1661,12 +1661,12 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         # Credentials display - horizontal layout
         creds_display_frame = tb.Frame(cred_frame, bootstyle="dark")
         creds_display_frame.configure(style="TFrame")
-        creds_display_frame.pack(fill=tb.X)
+        creds_display_frame.pack(fill=tk.X)
         
         # Password credentials (left)
         pass_cred_frame = tb.Frame(creds_display_frame, bootstyle="dark")
         pass_cred_frame.configure(style="TFrame")
-        pass_cred_frame.pack(side=tb.LEFT, fill=tb.BOTH, expand=True, padx=(0, 5))
+        pass_cred_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
         
         pass_cred_label = tb.Label(pass_cred_frame, text="Password Credentials:", 
                                   foreground="#00ff00", background="#000000",
@@ -1678,7 +1678,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
                                                 font=("Consolas", 9),
                                                 selectbackground="#333333",
                                                 selectforeground="#00ff00")
-        self.password_creds_listbox.pack(fill=tb.BOTH, expand=True, pady=(2, 0))
+        self.password_creds_listbox.pack(fill=tk.BOTH, expand=True, pady=(2, 0))
         # Force colors after creation
         self.password_creds_listbox.configure(background="#000000", foreground="#00ff00")
         self.password_creds_listbox.bind('<<ListboxSelect>>', self.on_password_select)
@@ -1686,7 +1686,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         # Hash credentials (right)
         hash_cred_frame = tb.Frame(creds_display_frame, bootstyle="dark")
         hash_cred_frame.configure(style="TFrame")
-        hash_cred_frame.pack(side=tb.LEFT, fill=tb.BOTH, expand=True, padx=(5, 0))
+        hash_cred_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
         
         hash_cred_label = tb.Label(hash_cred_frame, text="Hash Credentials:", 
                                   foreground="#ec1c3a", background="#000000",
@@ -1698,7 +1698,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
                                             font=("Consolas", 9),
                                             selectbackground="#333333",
                                             selectforeground="#ec1c3a")
-        self.hash_creds_listbox.pack(fill=tb.BOTH, expand=True, pady=(2, 0))
+        self.hash_creds_listbox.pack(fill=tk.BOTH, expand=True, pady=(2, 0))
         # Force colors after creation
         self.hash_creds_listbox.configure(background="#000000", foreground="#ec1c3a")
         self.hash_creds_listbox.bind('<<ListboxSelect>>', self.on_hash_select)
@@ -1706,7 +1706,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         # Command generation section
         command_frame = tb.Frame(main_frame, bootstyle="dark")
         command_frame.configure(style="TFrame")
-        command_frame.pack(fill=tb.BOTH, expand=True, pady=(0, 10))
+        command_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
         
         command_label = tb.Label(command_frame, text="GENERATED COMMANDS:", 
                                 style="SectionLabel.TLabel")
@@ -1721,18 +1721,18 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         # Command output area
         command_output_frame = tb.Frame(command_frame, bootstyle="dark")
         command_output_frame.configure(style="TFrame")
-        command_output_frame.pack(fill=tb.BOTH, expand=True)
+        command_output_frame.pack(fill=tk.BOTH, expand=True)
         
         command_scrollbar = tb.Scrollbar(command_output_frame, bootstyle="dark")
-        command_scrollbar.pack(side=tb.RIGHT, fill=tb.Y)
+        command_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         self.command_output = tb.Text(command_output_frame, height=8,
                                      background="#000000", foreground="#fefe00",
-                                     font=("Consolas", 10, "bold"), wrap=tb.WORD,
+                                     font=("Consolas", 10, "bold"), wrap=tk.WORD,
                                      insertbackground="#fefe00",
                                      selectbackground="#333333",
                                      yscrollcommand=command_scrollbar.set)
-        self.command_output.pack(side=tb.LEFT, fill=tb.BOTH, expand=True)
+        self.command_output.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.command_output.configure(background="#000000", foreground="#fefe00")
         command_scrollbar.config(command=self.command_output.yview)
         
@@ -1948,7 +1948,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         """Hash generation tools tab"""
         main_frame = tb.Frame(parent_frame, bootstyle="dark")
         main_frame.configure(style="TFrame")
-        main_frame.pack(fill=tb.BOTH, expand=True, padx=10, pady=10)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Title
         title_label = tb.Label(main_frame, text="HASH TOOLS", 
@@ -1959,7 +1959,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         # Create single column for hash generation only
         left_column = tb.Frame(main_frame, bootstyle="dark")
         left_column.configure(style="TFrame")
-        left_column.pack(fill=tb.BOTH, expand=True, padx=20)
+        left_column.pack(fill=tk.BOTH, expand=True, padx=20)
         
         # Hash Generator Section
         gen_label = tb.Label(left_column, text="HASH GENERATOR", 
@@ -1983,7 +1983,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
                                          highlightbackground="#333333",
                                          highlightcolor="#fefe00",
                                          borderwidth=1, relief="solid")
-        self.hash_input_entry.pack(fill=tb.X, pady=(0, 10))
+        self.hash_input_entry.pack(fill=tk.X, pady=(0, 10))
         self.hash_input_entry.insert(0, "password123")
         
         # Hash type selection
@@ -2018,7 +2018,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         hash_combo = tb.Combobox(left_column, textvariable=self.hash_type_var,
                                 values=hash_types, state="readonly", width=38,
                                 font=("Consolas", 10), style="HashCombo.TCombobox")
-        hash_combo.pack(fill=tb.X, pady=(0, 10))
+        hash_combo.pack(fill=tk.X, pady=(0, 10))
         
         # Generate button
         generate_button = tb.Button(left_column, text="Generate Hash", 
@@ -2034,10 +2034,10 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         
         self.hash_output = tb.Text(left_column, height=6, 
                                   background="#000000", foreground="#fefe00",
-                                  font=("Consolas", 10, "bold"), wrap=tb.WORD,
+                                  font=("Consolas", 10, "bold"), wrap=tk.WORD,
                                   insertbackground="#fefe00",
                                   selectbackground="#333333")
-        self.hash_output.pack(fill=tb.BOTH, expand=True)
+        self.hash_output.pack(fill=tk.BOTH, expand=True)
         self.hash_output.configure(background="#000000", foreground="#fefe00")
         self.hash_output.insert("1.0", "Generated hashes will appear here...")
 
@@ -2084,7 +2084,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         """Encoding/Decoding tools tab"""
         main_frame = tb.Frame(parent_frame, bootstyle="dark")
         main_frame.configure(style="TFrame")
-        main_frame.pack(fill=tb.BOTH, expand=True, padx=10, pady=10)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Title
         title_label = tb.Label(main_frame, text="ENCODER / DECODER", 
@@ -2095,13 +2095,13 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         # Controls frame
         controls_frame = tb.Frame(main_frame, bootstyle="dark")
         controls_frame.configure(style="TFrame")
-        controls_frame.pack(fill=tb.X, pady=(0, 10))
+        controls_frame.pack(fill=tk.X, pady=(0, 10))
         
         # Encoding type selection
         encoding_label = tb.Label(controls_frame, text="ENCODING TYPE:", 
                                  font=("Consolas", 12, "bold"),
                                  foreground="#91ddd3", background="#000000")
-        encoding_label.pack(side=tb.LEFT, padx=(0, 10))
+        encoding_label.pack(side=tk.LEFT, padx=(0, 10))
         
         self.encoding_var = tb.StringVar(value="Windows Base64")
         encodings = ["Windows Base64", "Base64", "URL", "HTML", "Hex", "ROT13", "Binary"]
@@ -2129,28 +2129,28 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         encoding_combo = tb.Combobox(controls_frame, textvariable=self.encoding_var,
                                     values=encodings, state="readonly", width=15,
                                     font=("Consolas", 10), style="EncodingCombo.TCombobox")
-        encoding_combo.pack(side=tb.LEFT, padx=(0, 20))
+        encoding_combo.pack(side=tk.LEFT, padx=(0, 20))
         
         # Buttons
         encode_button = tb.Button(controls_frame, text="Encode", 
                                  bootstyle="success", width=10,
                                  command=self.encode_text)
-        encode_button.pack(side=tb.LEFT, padx=(0, 5))
+        encode_button.pack(side=tk.LEFT, padx=(0, 5))
         
         decode_button = tb.Button(controls_frame, text="Decode", 
                                  bootstyle="info", width=10,
                                  command=self.decode_text)
-        decode_button.pack(side=tb.LEFT, padx=(0, 5))
+        decode_button.pack(side=tk.LEFT, padx=(0, 5))
         
         clear_button = tb.Button(controls_frame, text="Clear", 
                                 bootstyle="secondary", width=10,
                                 command=self.clear_encoder)
-        clear_button.pack(side=tb.LEFT)
+        clear_button.pack(side=tk.LEFT)
         
         # Input/Output area
         io_frame = tb.Frame(main_frame, bootstyle="dark")
         io_frame.configure(style="TFrame")
-        io_frame.pack(fill=tb.BOTH, expand=True)
+        io_frame.pack(fill=tk.BOTH, expand=True)
         
         # Input section
         input_label = tb.Label(io_frame, text="INPUT:", 
@@ -2160,10 +2160,10 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         
         self.encoder_input = tb.Text(io_frame, height=8, 
                                     background="#000000", foreground="#fefe00",
-                                    font=("Consolas", 10, "bold"), wrap=tb.WORD,
+                                    font=("Consolas", 10, "bold"), wrap=tk.WORD,
                                     insertbackground="#fefe00",
                                     selectbackground="#333333")
-        self.encoder_input.pack(fill=tb.BOTH, expand=True, pady=(0, 10))
+        self.encoder_input.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
         # Force colors after creation
         self.encoder_input.configure(background="#000000", foreground="#fefe00")
         
@@ -2185,10 +2185,10 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         
         self.encoder_output = tb.Text(io_frame, height=8, 
                                      background="#000000", foreground="#00ff00",
-                                     font=("Consolas", 10, "bold"), wrap=tb.WORD,
+                                     font=("Consolas", 10, "bold"), wrap=tk.WORD,
                                      insertbackground="#00ff00",
                                      selectbackground="#333333")
-        self.encoder_output.pack(fill=tb.BOTH, expand=True)
+        self.encoder_output.pack(fill=tk.BOTH, expand=True)
         self.encoder_output.configure(background="#000000", foreground="#00ff00")
         self.encoder_output.insert("1.0", "Encoded/decoded output will appear here...")
 
@@ -2332,12 +2332,12 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
     # Render the generated script or error message in the output text widget
     def render_script(self, script):
         self.output_text.configure(state="normal")
-        self.output_text.delete("1.0", tb.END)
+        self.output_text.delete("1.0", tk.END)
 
         if script and script.strip():
-            self.output_text.insert(tb.END, script.strip(), "bold")
+            self.output_text.insert(tk.END, script.strip(), "bold")
         else:
-            self.output_text.insert(tb.END, "Error: No shellcode generated or encountered an error.")
+            self.output_text.insert(tk.END, "Error: No shellcode generated or encountered an error.")
 
         self.output_text.configure(state="disabled")
 
@@ -2420,12 +2420,12 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
     # Render the generated script or error message in the output text widget
     def render_script(self, script):
         self.output_text.configure(state="normal")
-        self.output_text.delete("1.0", tb.END)
+        self.output_text.delete("1.0", tk.END)
 
         if script and script.strip():
-            self.output_text.insert(tb.END, script.strip(), "bold")
+            self.output_text.insert(tk.END, script.strip(), "bold")
         else:
-            self.output_text.insert(tb.END, "[!] Error: No script generated.\n")
+            self.output_text.insert(tk.END, "[!] Error: No script generated.\n")
             self.output_text.image_create("1.0", image=self.output_bg_image)
             self.output_text.tag_lower("sel")
 
@@ -2452,7 +2452,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         def scroll(index=0):
             display_text = text[index:] + "   " + text[:index]
             self.msf_entry.configure(state="normal")
-            self.msf_entry.delete("1.0", tb.END)
+            self.msf_entry.delete("1.0", tk.END)
             visible_text = display_text[:35]
             if " " in visible_text:
                 visible_text = visible_text.rsplit(" ", 1)[0]

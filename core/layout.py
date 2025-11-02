@@ -1,6 +1,7 @@
 import ttkbootstrap as tb
 from PIL import Image, ImageTk
 from tkinter import END
+import tkinter as tk
 import psutil, json, os, re
 import logging
 from core.builder import generate_shellcode_threaded, build_exe_from_output
@@ -13,15 +14,15 @@ def create_base_layout(root, center_width=450):
     # === FRAME SETUP ===
     # Create left frame first
     left_frame = tb.Frame(root, bootstyle="dark")
-    left_frame.pack(side=tb.LEFT, fill=tb.BOTH, expand=True)
+    left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
     
     # Create right frame next 
     right_frame = tb.Frame(root, bootstyle="dark")
-    right_frame.pack(side=tb.RIGHT, fill=tb.BOTH, expand=True)
+    right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
     
     # Create center frame last so it goes in the middle
     center_frame = tb.Frame(root, bootstyle="dark", width=center_width)
-    center_frame.pack(side=tb.LEFT, fill=tb.BOTH, expand=False)
+    center_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=False)
     center_frame.pack_propagate(False)  # Prevent frame from shrinking to fit contents
 
     # Only configure background if root is actually the main window (not a tab frame)
@@ -138,7 +139,7 @@ def create_left_right_controls(app):
 
     # Applocker checkbox (initially disabled)
     app.applocker_var = tb.BooleanVar()
-    app.applocker_checkbox = create_neon_checkbox(app.root, app.right_frame, text="AppLocker", variable=app.applocker_var, state=tb.DISABLED, justify="right", anchor="e")
+    app.applocker_checkbox = create_neon_checkbox(app.root, app.right_frame, text="AppLocker", variable=app.applocker_var, state=tk.DISABLED, justify="right", anchor="e")
     app.applocker_checkbox.pack(pady=5, padx=10, anchor="ne")
 
     # Bind applocker checkbox callback
@@ -162,7 +163,7 @@ def create_left_right_controls(app):
     msf_frame = tb.Frame(app.left_frame, style="Custom.TFrame")
     msf_frame.pack(padx=10, pady=5, anchor="nw")
 
-    app.msf_entry = tb.Text(msf_frame, background="#FEFE00", foreground="#000000", insertbackground="#000000", relief=tb.FLAT, highlightthickness=0, font=("Consolas", 15, "bold"), height=1, width=15)
+    app.msf_entry = tb.Text(msf_frame, background="#FEFE00", foreground="#000000", insertbackground="#000000", relief=tk.FLAT, highlightthickness=0, font=("Consolas", 15, "bold"), height=1, width=15)
     app.msf_entry.configure(foreground="#000000", background="#FEFE00", insertbackground="#000000")
     update_msf_entry(app, app.msf_button_text.get())
     app.msf_entry.tag_configure("left", justify="left")
@@ -170,30 +171,30 @@ def create_left_right_controls(app):
     app.msf_entry.configure(font=("Consolas", 15, "bold"))
     app.msf_entry.pack(side="left", fill="x", expand=True)
 
-    app.copy_button = tb.Button(app.left_frame, text="Copy", style="CopyButton.TButton", command=lambda: copy_msf_command(app), width=10, state=tb.DISABLED)
+    app.copy_button = tb.Button(app.left_frame, text="Copy", style="CopyButton.TButton", command=lambda: copy_msf_command(app), width=10, state=tk.DISABLED)
     app.copy_button.pack(padx=10, pady=5, anchor="nw")
 
 # Creating the output section in the center frame
 def create_output_section(center_frame):
     text_frame = tb.Frame(center_frame, style="Custom.TFrame")
-    text_frame.pack(padx=10, pady=10, fill=tb.BOTH, expand=True)
+    text_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
     scrollbar = tb.Scrollbar(text_frame)
-    scrollbar.pack(side=tb.RIGHT, fill=tb.Y)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
     output_text = tb.Text(
         text_frame,
         yscrollcommand=None,  # Initially disable scrollbar
         background="#000000",
         foreground="#fefe00",
-        wrap=tb.WORD,
+        wrap=tk.WORD,
         insertbackground="#fefe00",
         selectbackground="#333333",
         font=("Consolas", 10, "bold"),
         state="disabled"  # Start in disabled state to prevent scrolling
     )
 
-    output_text.pack(fill=tb.BOTH, expand=True)
+    output_text.pack(fill=tk.BOTH, expand=True)
 
     # Disable all scroll events initially
     def disable_scroll(event):
@@ -389,41 +390,41 @@ def update_build_button(app):
         app.build_button.config(
             text="Copy CSProj",
             command=lambda: copy_csproj_to_clipboard(app),
-            state=tb.DISABLED  # Disabled until generation
+            state=tk.DISABLED  # Disabled until generation
         )
         # Disable AppLocker checkbox for CSProj (not applicable)
         if hasattr(app, 'applocker_checkbox'):
-            app.applocker_checkbox.configure(state=tb.DISABLED)
+            app.applocker_checkbox.configure(state=tk.DISABLED)
             app.applocker_var.set(False)  # Uncheck it
     elif technique == "VBAMacro":
         app.build_button.config(
             text="Copy Macro",
             command=lambda: copy_vba_macro_to_clipboard(app),
-            state=tb.DISABLED  # Disabled until generation
+            state=tk.DISABLED  # Disabled until generation
         )
         # Disable AppLocker checkbox for VBA Macro (not applicable)
         if hasattr(app, 'applocker_checkbox'):
-            app.applocker_checkbox.configure(state=tb.DISABLED)
+            app.applocker_checkbox.configure(state=tk.DISABLED)
             app.applocker_var.set(False)  # Uncheck it
     elif technique == "HTARunner":
         app.build_button.config(
             text="Copy HTA",
             command=lambda: copy_vba_macro_to_clipboard(app),  # Reuse same copy function
-            state=tb.DISABLED  # Disabled until generation
+            state=tk.DISABLED  # Disabled until generation
         )
         # Disable AppLocker checkbox for HTA Runner (not applicable)
         if hasattr(app, 'applocker_checkbox'):
-            app.applocker_checkbox.configure(state=tb.DISABLED)
+            app.applocker_checkbox.configure(state=tk.DISABLED)
             app.applocker_var.set(False)  # Uncheck it
     else:
         app.build_button.config(
             text="Build EXE",
             command=lambda: build_exe_from_output(app),
-            state=tb.DISABLED  # Disabled until generation
+            state=tk.DISABLED  # Disabled until generation
         )
         # Disable AppLocker checkbox until generation for shellcode techniques
         if hasattr(app, 'applocker_checkbox'):
-            app.applocker_checkbox.configure(state=tb.DISABLED)
+            app.applocker_checkbox.configure(state=tk.DISABLED)
             app.applocker_var.set(False)  # Uncheck it
 
 # Create a flickering neon checkbox - NOT USED CURRENTLY
@@ -448,7 +449,7 @@ def create_neon_checkbox(root, parent, text, variable, **kwargs):
         text=text,
         variable=variable,
         style=style_name,
-        state=kwargs.get("state", tb.NORMAL),
+        state=kwargs.get("state", tk.NORMAL),
         bootstyle="",
         takefocus=False
     )
@@ -515,7 +516,7 @@ def apply_hover_effect(root, widget, style_name=None, var=None):
 
 # Update the generation state of buttons and labels 
 def update_generation_state(app, enabled=True, top_text=None, bottom_text=None, color=None):
-    state = tb.NORMAL if enabled else tb.DISABLED
+    state = tk.NORMAL if enabled else tk.DISABLED
 
     app.root.after(0, lambda: app.build_button.config(state=state))
     app.root.after(0, lambda: app.copy_button.config(state=state))
@@ -569,10 +570,10 @@ def update_generation_state(app, enabled=True, top_text=None, bottom_text=None, 
             # Only re-enable AppLocker checkbox for shellcode techniques after generation
             technique = app.selected_technique.get()
             if technique not in ["csproj msbuild", "VBAMacro", "HTARunner"]:
-                app.root.after(0, lambda: app.applocker_checkbox.configure(state=tb.NORMAL))
+                app.root.after(0, lambda: app.applocker_checkbox.configure(state=tk.NORMAL))
         else:
             # Disable and uncheck AppLocker checkbox when generation starts
-            app.root.after(0, lambda: app.applocker_checkbox.configure(state=tb.DISABLED))
+            app.root.after(0, lambda: app.applocker_checkbox.configure(state=tk.DISABLED))
             app.root.after(0, lambda: app.applocker_var.set(False))
 
     status_text = top_text if top_text else ("Idle" if enabled else "Generating")
@@ -672,8 +673,8 @@ def load_and_display_applocker_bypass(app):
     except Exception as e:
         logger.error(f"Error merging technique with AppLocker bypass: {e}")
         app.output_text.configure(state="normal")
-        app.output_text.delete("1.0", tb.END)
-        app.output_text.insert(tb.END, f"[!] Error merging templates: {e}")
+        app.output_text.delete("1.0", tk.END)
+        app.output_text.insert(tk.END, f"[!] Error merging templates: {e}")
         app.output_text.configure(state="disabled")
 
 def restore_previous_content(app):
@@ -685,7 +686,7 @@ def restore_previous_content(app):
         else:
             # If no previous content, show the background image with proper styling
             app.output_text.configure(state="normal")
-            app.output_text.delete("1.0", tb.END)
+            app.output_text.delete("1.0", tk.END)
             app.output_text.image_create("1.0", image=app.output_bg_image)
             app.output_text.tag_lower("sel")
             app.output_text.configure(state="disabled")
@@ -694,7 +695,7 @@ def restore_previous_content(app):
         # Fallback to showing background image if restore fails
         try:
             app.output_text.configure(state="normal")
-            app.output_text.delete("1.0", tb.END)
+            app.output_text.delete("1.0", tk.END)
             app.output_text.image_create("1.0", image=app.output_bg_image)
             app.output_text.tag_lower("sel")
             app.output_text.configure(state="disabled")
@@ -1401,7 +1402,7 @@ def clear_center_frame(app):
     try:
         if hasattr(app, 'output_text') and hasattr(app, 'output_bg_image'):
             app.output_text.configure(state="normal")
-            app.output_text.delete("1.0", tb.END)
+            app.output_text.delete("1.0", tk.END)
             app.output_text.image_create("1.0", image=app.output_bg_image)
             app.output_text.tag_lower("sel")
             app.output_text.configure(state="disabled")
